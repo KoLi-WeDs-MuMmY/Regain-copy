@@ -48,13 +48,13 @@ class RegainRepository(
             dao.upsertUserProgress(
                 UserProgressEntity(
                     id = 1,
-                    regaLevel = 3,
-                    regaStageName = "Sprouting Sage Spirit",
-                    leafCoins = 340,
-                    streakDays = 6,
-                    mindfulGoalMinutes = 150,
-                    savedMinutesToday = 74,
-                    mindfulBreathsCompleted = 9,
+                    regaLevel = 1,
+                    regaStageName = "Mindful Pebble Seed",
+                    leafCoins = 0,
+                    streakDays = 0,
+                    mindfulGoalMinutes = 120,
+                    savedMinutesToday = 0,
+                    mindfulBreathsCompleted = 0,
                     strictModeGlobal = false
                 )
             )
@@ -69,10 +69,10 @@ class RegainRepository(
                         appName = "Instagram",
                         category = "Social & Reels",
                         iconKey = "instagram",
-                        dailyLimitMinutes = 35,
-                        usedTodayMinutes = 31,
-                        pickupsToday = 18,
-                        blockedCountToday = 4,
+                        dailyLimitMinutes = 30,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = true,
                         isEnabled = true
                     ),
@@ -82,9 +82,9 @@ class RegainRepository(
                         category = "Video & Shorts",
                         iconKey = "youtube",
                         dailyLimitMinutes = 45,
-                        usedTodayMinutes = 38,
-                        pickupsToday = 12,
-                        blockedCountToday = 3,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = false,
                         isEnabled = true
                     ),
@@ -94,9 +94,9 @@ class RegainRepository(
                         category = "Short-Form Video",
                         iconKey = "tiktok",
                         dailyLimitMinutes = 20,
-                        usedTodayMinutes = 20,
-                        pickupsToday = 15,
-                        blockedCountToday = 7,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = true,
                         isEnabled = true
                     ),
@@ -106,9 +106,9 @@ class RegainRepository(
                         category = "News & Feeds",
                         iconKey = "x",
                         dailyLimitMinutes = 25,
-                        usedTodayMinutes = 14,
-                        pickupsToday = 9,
-                        blockedCountToday = 1,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = false,
                         isEnabled = true
                     ),
@@ -118,9 +118,9 @@ class RegainRepository(
                         category = "Forums & Threads",
                         iconKey = "reddit",
                         dailyLimitMinutes = 30,
-                        usedTodayMinutes = 19,
-                        pickupsToday = 7,
-                        blockedCountToday = 2,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = false,
                         isEnabled = true
                     ),
@@ -130,9 +130,9 @@ class RegainRepository(
                         category = "Messaging & Spotlight",
                         iconKey = "snapchat",
                         dailyLimitMinutes = 25,
-                        usedTodayMinutes = 11,
-                        pickupsToday = 10,
-                        blockedCountToday = 1,
+                        usedTodayMinutes = 0,
+                        pickupsToday = 0,
+                        blockedCountToday = 0,
                         isStrictLocked = false,
                         isEnabled = false
                     )
@@ -163,7 +163,7 @@ class RegainRepository(
                     }
                 }
             } catch (_: Exception) {
-                // Keep local Room records if UsageStats query fails
+                // Keep local records if UsageStats query fails
             }
         }
 
@@ -178,7 +178,7 @@ class RegainRepository(
                         shieldMode = "BLOCK_COMPLETELY",
                         dailyCapMinutes = 0,
                         usedMinutesToday = 0,
-                        interceptsToday = 9,
+                        interceptsToday = 0,
                         isEnabled = true,
                         allowDirectMessages = true
                     ),
@@ -188,8 +188,8 @@ class RegainRepository(
                         feedName = "Shorts Shelf & Vertical Feed",
                         shieldMode = "MINDFUL_BREATH_PAUSE",
                         dailyCapMinutes = 15,
-                        usedMinutesToday = 6,
-                        interceptsToday = 6,
+                        usedMinutesToday = 0,
+                        interceptsToday = 0,
                         isEnabled = true,
                         allowDirectMessages = true
                     ),
@@ -200,7 +200,7 @@ class RegainRepository(
                         shieldMode = "BLOCK_COMPLETELY",
                         dailyCapMinutes = 0,
                         usedMinutesToday = 0,
-                        interceptsToday = 11,
+                        interceptsToday = 0,
                         isEnabled = true,
                         allowDirectMessages = false
                     ),
@@ -210,8 +210,8 @@ class RegainRepository(
                         feedName = "Spotlight & Discover Stories",
                         shieldMode = "DAILY_CAP_15M",
                         dailyCapMinutes = 15,
-                        usedMinutesToday = 8,
-                        interceptsToday = 3,
+                        usedMinutesToday = 0,
+                        interceptsToday = 0,
                         isEnabled = true,
                         allowDirectMessages = true
                     ),
@@ -221,8 +221,8 @@ class RegainRepository(
                         feedName = "Algorithmic Popular / For You",
                         shieldMode = "MINDFUL_BREATH_PAUSE",
                         dailyCapMinutes = 20,
-                        usedMinutesToday = 12,
-                        interceptsToday = 4,
+                        usedMinutesToday = 0,
+                        interceptsToday = 0,
                         isEnabled = true,
                         allowDirectMessages = true
                     )
@@ -230,41 +230,8 @@ class RegainRepository(
             )
         }
 
-        val currentSessions = dao.getAllFocusSessions().firstOrNull()
-        if (currentSessions.isNullOrEmpty()) {
-            val now = System.currentTimeMillis()
-            dao.insertFocusSessions(
-                listOf(
-                    FocusSessionEntity(
-                        title = "Morning Deep Work Sprint",
-                        tag = "Coding & Build",
-                        mode = "POMODORO",
-                        durationMinutes = 50,
-                        ambientSound = "Zen Rain",
-                        coinsEarned = 50,
-                        completedAtTimestamp = now - 3 * 3600_000L
-                    ),
-                    FocusSessionEntity(
-                        title = "Chapter 4 Organic Chemistry",
-                        tag = "Deep Study",
-                        mode = "POMODORO",
-                        durationMinutes = 25,
-                        ambientSound = "Brown Noise",
-                        coinsEarned = 25,
-                        completedAtTimestamp = now - 7 * 3600_000L
-                    ),
-                    FocusSessionEntity(
-                        title = "Uninterrupted Evening Reading",
-                        tag = "Mindful Reading",
-                        mode = "COUNTDOWN",
-                        durationMinutes = 30,
-                        ambientSound = "Forest Wind",
-                        coinsEarned = 30,
-                        completedAtTimestamp = now - 22 * 3600_000L
-                    )
-                )
-            )
-        }
+        // Sessions start empty and calculate as user focuses
+        // val currentSessions = dao.getAllFocusSessions().firstOrNull()
 
         val currentSchedules = dao.getAllSchedules().firstOrNull()
         if (currentSchedules.isNullOrEmpty()) {
@@ -307,9 +274,9 @@ class RegainRepository(
                         title = "Complete 1 Deep Focus Session",
                         subtitle = "Run the Pomodoro or Countdown timer to nurture Rega",
                         rewardCoins = 40,
-                        currentProgress = 1,
+                        currentProgress = 0,
                         targetProgress = 1,
-                        isCompleted = true,
+                        isCompleted = false,
                         isClaimed = false
                     ),
                     DailyQuestEntity(
@@ -317,9 +284,9 @@ class RegainRepository(
                         title = "Keep Reels & Shorts Shield Active",
                         subtitle = "Block infinite vertical video feeds while keeping DMs open",
                         rewardCoins = 35,
-                        currentProgress = 4,
-                        targetProgress = 4,
-                        isCompleted = true,
+                        currentProgress = 0,
+                        targetProgress = 1,
+                        isCompleted = false,
                         isClaimed = false
                     ),
                     DailyQuestEntity(
@@ -327,7 +294,7 @@ class RegainRepository(
                         title = "Practice 3 Mindful Breath Pauses",
                         subtitle = "Complete a 4-4-4 breathing pause instead of impulse scrolling",
                         rewardCoins = 50,
-                        currentProgress = 2,
+                        currentProgress = 0,
                         targetProgress = 3,
                         isCompleted = false,
                         isClaimed = false

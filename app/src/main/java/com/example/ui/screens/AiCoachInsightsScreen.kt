@@ -386,15 +386,17 @@ private fun SinglePromptAiCoachCard(
 private fun WeeklyScreenTimeTrendCard(uiState: RegainUiState) {
     val todayMins = uiState.totalScreenTimeMinutesToday
     val dailyData = listOf(
-        "Mon" to 165,
-        "Tue" to 148,
-        "Wed" to 139,
-        "Thu" to 152,
-        "Fri" to 128,
-        "Sat" to 142,
+        "Mon" to 0,
+        "Tue" to 0,
+        "Wed" to 0,
+        "Thu" to 0,
+        "Fri" to 0,
+        "Sat" to 0,
         "Today" to todayMins
     )
-    val maxVal = (dailyData.maxOf { it.second }).coerceAtLeast(180)
+    val maxVal = (dailyData.maxOf { it.second })
+        .coerceAtLeast(uiState.userProgress.mindfulGoalMinutes)
+        .coerceAtLeast(60)
     val barColor = MaterialTheme.colorScheme.primary
     val todayBarColor = MaterialTheme.colorScheme.tertiary
     val goalLineColor = MaterialTheme.colorScheme.secondary

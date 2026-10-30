@@ -64,8 +64,8 @@ data class MindfulInterceptState(
     val isVisible: Boolean = false,
     val targetName: String = "Instagram Reels",
     val targetSubtitle: String = "Short-Form Infinite Feed Shield",
-    val usedMinutes: Int = 31,
-    val limitMinutes: Int = 35,
+    val usedMinutes: Int = 0,
+    val limitMinutes: Int = 30,
     val isStrictLocked: Boolean = false,
     val keepDmsAvailable: Boolean = true
 )
@@ -88,7 +88,7 @@ data class StudyRoomUiState(
     val joinedRoomId: String? = "room_kyoto_zen",
     val isInRoomFocus: Boolean = false,
     val roomSessionSeconds: Int = 0,
-    val cheerCount: Int = 14,
+    val cheerCount: Int = 0,
     val rooms: List<VirtualStudyRoom> = defaultStudyRooms()
 )
 
@@ -125,7 +125,9 @@ data class RegainUiState(
         get() = shortFormShields.sumOf { it.interceptsToday }
 
     val totalFocusedMinutesToday: Int
-        get() = focusSessions.sumOf { it.durationMinutes } + (studyRoomState.roomSessionSeconds / 60)
+        get() = focusSessions.sumOf { it.durationMinutes } +
+            (studyRoomState.roomSessionSeconds / 60) +
+            (if (timerState.isRunning) timerState.elapsedSeconds / 60 else 0)
 }
 
 class RegainViewModel(application: Application) : AndroidViewModel(application) {
@@ -361,6 +363,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             val progress = uiState.value.userProgress
             val updatedCoins = progress.leafCoins + coins
             val newLevel = (updatedCoins / 120).coerceAtLeast(1)
+            val updatedStreak = if (progress.streakDays == 0) 1 else progress.streakDays
             val stageName = when {
                 newLevel >= 6 -> "Ancient Bonsai Guardian"
                 newLevel >= 4 -> "Blooming Lotus Sage"
@@ -371,10 +374,17 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 progress.copy(
                     leafCoins = updatedCoins,
                     regaLevel = newLevel,
+                    streakDays = updatedStreak,
                     regaStageName = stageName,
                     savedMinutesToday = progress.savedMinutesToday + (focusedMinutes / 2)
                 )
             )
+            val focusQuest = uiState.value.dailyQuests.find { it.id == "quest_focus_25" }
+            if (focusQuest != null && !focusQuest.isCompleted) {
+                repository.updateDailyQuest(
+                    focusQuest.copy(currentProgress = 1, isCompleted = true)
+                )
+            }
             postBanner("Completed ${focusedMinutes}m of ${s.selectedTag}! Rega earned +$coins Leaf Coins.")
         }
     }
@@ -436,7 +446,14 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleShortFormShieldEnabled(shield: ShortFormShieldEntity) {
         viewModelScope.launch {
-            repository.updateShortFormShield(shield.copy(isEnabled = !shield.isEnabled))
+            val nextEnabled = !shield.isEnabled
+            repository.updateShortFormShield(shield.copy(isEnabled = nextEnabled))
+            val shieldQuest = uiState.value.dailyQuests.find { it.id == "quest_reels_shield" }
+            if (shieldQuest != null && !shieldQuest.isCompleted && nextEnabled) {
+                repository.updateDailyQuest(
+                    shieldQuest.copy(currentProgress = 1, isCompleted = true)
+                )
+            }
         }
     }
 
@@ -591,8 +608,24 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             roomTickerJob?.cancel()
             soundEngine.stop()
             _studyRoomState.update { it.copy(isInRoomFocus = false) }
-            val mins = (current.roomSessionSeconds / 60).coerceAtLeast(1)
-            postBanner("Paused study room session (+${mins}m added to room leaderboard).")
+            val mins = (current.roomSessionSeconds / 60)
+            if (mins > 0) {
+                viewModelScope.launch {
+                    val progress = uiState.value.userProgress
+                    val updatedCoins = progress.leafCoins + mins
+                    val nextStreak = if (progress.streakDays == 0) 1 else progress.streakDays
+                    repository.upsertUserProgress(
+                        progress.copy(
+                            leafCoins = updatedCoins,
+                            streakDays = nextStreak,
+                            savedMinutesToday = progress.savedMinutesToday + mins
+                        )
+                    )
+                }
+                postBanner("Paused study room session (+${mins}m added to focus statistics).")
+            } else {
+                postBanner("Paused study room timer (${current.roomSessionSeconds}s recorded).")
+            }
         } else {
             _studyRoomState.update { it.copy(isInRoomFocus = true) }
             val room = current.rooms.find { it.id == current.joinedRoomId }
@@ -697,10 +730,10 @@ fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
         ambientRecommendation = AmbientSoundPreset.ZEN_RAIN,
         activeMembersCount = 48,
         peers = listOf(
-            VirtualStudyPeer("p1", "Haruto K.", "JP", "Architecture Thesis", 185, 19, "In deep flow (50m block)"),
-            VirtualStudyPeer("p2", "Ananya R.", "IN", "UPSC & Polity Notes", 160, 14, "Reviewing flashcards"),
-            VirtualStudyPeer("p3", "Elena M.", "DE", "Cognitive Science", 135, 11, "Pomodoro #4 of 6"),
-            VirtualStudyPeer("p4", "Liam T.", "CA", "Rust & Systems Dev", 110, 8, "Zero social media today")
+            VirtualStudyPeer("p1", "Haruto K.", "JP", "Architecture Thesis", 25, 1, "In deep flow (25m block)"),
+            VirtualStudyPeer("p2", "Ananya R.", "IN", "UPSC & Polity Notes", 20, 1, "Reviewing flashcards"),
+            VirtualStudyPeer("p3", "Elena M.", "DE", "Cognitive Science", 15, 1, "Pomodoro #1"),
+            VirtualStudyPeer("p4", "Liam T.", "CA", "Rust & Systems Dev", 10, 1, "Zero social media today")
         )
     ),
     VirtualStudyRoom(
@@ -710,9 +743,9 @@ fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
         ambientRecommendation = AmbientSoundPreset.BROWN_NOISE,
         activeMembersCount = 64,
         peers = listOf(
-            VirtualStudyPeer("p5", "Dr. Maya S.", "US", "USMLE Step 2 Prep", 210, 27, "Strict Mode locked"),
-            VirtualStudyPeer("p6", "jun_park", "KR", "Linear Algebra & ML", 190, 21, "Solving problem sets"),
-            VirtualStudyPeer("p7", "Sofia V.", "BR", "Biochemistry Lab", 145, 9, "Reels Shield active")
+            VirtualStudyPeer("p5", "Dr. Maya S.", "US", "USMLE Step 2 Prep", 35, 2, "Strict Mode locked"),
+            VirtualStudyPeer("p6", "jun_park", "KR", "Linear Algebra & ML", 25, 1, "Solving problem sets"),
+            VirtualStudyPeer("p7", "Sofia V.", "BR", "Biochemistry Lab", 15, 1, "Reels Shield active")
         )
     ),
     VirtualStudyRoom(
@@ -722,9 +755,9 @@ fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
         ambientRecommendation = AmbientSoundPreset.BINAURAL_40HZ,
         activeMembersCount = 31,
         peers = listOf(
-            VirtualStudyPeer("p8", "Noah C.", "GB", "Kotlin Compose UI", 175, 16, "Shipping v1.0 offline"),
-            VirtualStudyPeer("p9", "Chloe L.", "FR", "Editorial Illustration", 130, 12, "Sketching in silence"),
-            VirtualStudyPeer("p10", "Mateo G.", "ES", "Novel Draft Ch. 8", 95, 7, "1,800 words written")
+            VirtualStudyPeer("p8", "Noah C.", "GB", "Kotlin Compose UI", 30, 2, "Shipping v1.0 offline"),
+            VirtualStudyPeer("p9", "Chloe L.", "FR", "Editorial Illustration", 20, 1, "Sketching in silence"),
+            VirtualStudyPeer("p10", "Mateo G.", "ES", "Novel Draft Ch. 1", 10, 1, "Starting morning flow")
         )
     )
 )

@@ -22,13 +22,18 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK Licenses & Install SDK Packages
+      # Note: GitHub Actions ubuntu-latest runners already have the Android SDK pre-installed at $ANDROID_HOME.
+      # Avoid third-party setup-android actions which fail with 404 command-line tool download errors.
+      - name: Configure Android SDK & Accept Licenses
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "build-tools;36.0.0" "platforms;android-36" || true
+          echo "Using Android SDK at: $ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER="$(which sdkmanager 2>/dev/null || true)"
+          fi
+          if [ -n "$SDKMANAGER" ] && [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses || true
+          fi
 
       - name: Prepare debug.keystore and .env for Signing & Secrets Plugin
         run: |

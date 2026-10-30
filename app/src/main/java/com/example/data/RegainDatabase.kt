@@ -69,13 +69,13 @@ data class DailyQuestEntity(
 
 data class UserProgressEntity(
     val id: Int = 1,
-    val regaLevel: Int = 3,
-    val regaStageName: String = "Sprouting Sage Spirit",
-    val leafCoins: Int = 340,
-    val streakDays: Int = 6,
-    val mindfulGoalMinutes: Int = 150,
-    val savedMinutesToday: Int = 74,
-    val mindfulBreathsCompleted: Int = 9,
+    val regaLevel: Int = 1,
+    val regaStageName: String = "Mindful Pebble Seed",
+    val leafCoins: Int = 0,
+    val streakDays: Int = 0,
+    val mindfulGoalMinutes: Int = 120,
+    val savedMinutesToday: Int = 0,
+    val mindfulBreathsCompleted: Int = 0,
     val strictModeGlobal: Boolean = false,
     val strictPassphrase: String = "I choose mindful presence"
 )

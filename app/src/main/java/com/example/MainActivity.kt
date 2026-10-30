@@ -191,11 +191,13 @@ private fun RegainScreenContent(
                 }
             },
             onPreviewReelsIntercept = {
+                val reelsShield = uiState.shortFormShields.find { it.id == "instagram_reels" }
+                val app = uiState.appLimits.find { it.packageName == "com.instagram.android" }
                 viewModel.triggerMindfulIntercept(
                     targetName = "Instagram Reels",
                     targetSubtitle = "Targeted Short-Form Feed Shield (DMs Open)",
-                    usedMinutes = 31,
-                    limitMinutes = 35,
+                    usedMinutes = reelsShield?.usedMinutesToday ?: 0,
+                    limitMinutes = app?.dailyLimitMinutes ?: 30,
                     isStrictLocked = false,
                     keepDmsAvailable = true
                 )
