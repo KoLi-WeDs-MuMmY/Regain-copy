@@ -7,6 +7,8 @@ import com.example.ai.SinglePromptAiCoach
 import com.example.audio.AmbientSoundPreset
 import com.example.audio.ZenSoundEngine
 import com.example.blocker.BlockerPermissionStatus
+import com.example.blocker.RegainBlockerMonitorService
+import com.example.blocker.RegainOverlayWindowManager
 import com.example.blocker.RegainPermissionsManager
 import com.example.data.AiCoachInsightEntity
 import com.example.data.AppLimitEntity
@@ -265,6 +267,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         RegainNotificationHelper.ensureChannelsCreated(appContext)
+        RegainBlockerMonitorService.ensureServiceRunning(appContext)
         viewModelScope.launch {
             repository.ensureSeededAndSyncSystemUsage()
             _discoverableApps.value = repository.getDiscoverableAppsForBlocker()
@@ -293,11 +296,24 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     fun refreshPermissionsStatus() {
         val status = RegainPermissionsManager.checkAllPermissions(appContext)
         _permissionStatus.value = status
+        RegainBlockerMonitorService.ensureServiceRunning(appContext)
         if (status.hasUsageStatsPermission) {
             viewModelScope.launch {
                 repository.syncSystemUsageNow()
             }
         }
+    }
+
+    fun handleReturnedFromOverlaySanctuary(targetName: String?) {
+        if (targetName.isNullOrBlank()) return
+        RegainOverlayWindowManager.dismissFloatingPopUp(appContext)
+        _interceptState.update { it.copy(isVisible = false) }
+        _currentTab.value = RegainTab.SANCTUARY
+        postBanner(
+            message = "Closed $targetName & returned to Regain Zen Focus Sanctuary! Earned +15 Leaf Coins & saved ~8m.",
+            title = "Returned to Focus Sanctuary",
+            badgeText = "+15 Leaf Coins"
+        )
     }
 
     fun handleIncomingInterceptIntent(targetName: String?, subtitle: String?) {
@@ -311,7 +327,8 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             usedMinutes = matchedApp?.usedTodayMinutes ?: 0,
             limitMinutes = matchedApp?.dailyLimitMinutes ?: 30,
             isStrictLocked = matchedApp?.isStrictLocked ?: false,
-            keepDmsAvailable = false
+            keepDmsAvailable = false,
+            packageName = matchedApp?.packageName ?: "com.blocked.app"
         )
     }
 
@@ -782,22 +799,37 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         usedMinutes: Int,
         limitMinutes: Int,
         isStrictLocked: Boolean,
-        keepDmsAvailable: Boolean
+        keepDmsAvailable: Boolean,
+        packageName: String = "com.regainzen.preview"
     ) {
-        _interceptState.value = MindfulInterceptState(
-            isVisible = true,
-            targetName = targetName,
-            targetSubtitle = targetSubtitle,
-            usedMinutes = usedMinutes,
-            limitMinutes = limitMinutes,
-            isStrictLocked = isStrictLocked,
-            keepDmsAvailable = keepDmsAvailable
-        )
         RegainNotificationHelper.sendHeadsUpInterceptNotification(
             context = appContext,
             targetName = targetName,
             reasonSubtitle = targetSubtitle
         )
+
+        val shownSystemFloatingCard = RegainOverlayWindowManager.showFloatingBlockerPopUp(
+            context = appContext,
+            packageName = packageName,
+            targetName = targetName,
+            reasonSubtitle = targetSubtitle,
+            usedMinutes = usedMinutes,
+            limitMinutes = limitMinutes,
+            isStrictLocked = isStrictLocked,
+            keepDmsAvailable = keepDmsAvailable
+        )
+
+        if (!shownSystemFloatingCard) {
+            _interceptState.value = MindfulInterceptState(
+                isVisible = true,
+                targetName = targetName,
+                targetSubtitle = targetSubtitle,
+                usedMinutes = usedMinutes,
+                limitMinutes = limitMinutes,
+                isStrictLocked = isStrictLocked,
+                keepDmsAvailable = keepDmsAvailable
+            )
+        }
     }
 
     fun chooseMindfulReturnFromIntercept() {

@@ -290,12 +290,72 @@ class RegainDatabase private constructor(context: Context) :
         }
     }
 
+    fun getShortFormShieldForPackageSync(packageName: String): ShortFormShieldEntity? {
+        val shieldId = when (packageName) {
+            "com.instagram.android" -> "instagram_reels"
+            "com.google.android.youtube" -> "youtube_shorts"
+            "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" -> "tiktok_feed"
+            "com.snapchat.android" -> "snapchat_spotlight"
+            "com.reddit.frontpage", "com.twitter.android" -> "reddit_popular"
+            else -> null
+        } ?: return null
+        return shieldsFlow.value.firstOrNull { it.id == shieldId && it.isEnabled }
+    }
+
     fun incrementBlockCountSync(packageName: String) {
         val current = appLimitsFlow.value.firstOrNull { it.packageName == packageName } ?: return
         val updated = current.copy(blockedCountToday = current.blockedCountToday + 1)
         val db = writableDatabase
         db.insertWithOnConflict("app_limits", null, updated.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
         appLimitsFlow.value = queryAppLimits(db)
+    }
+
+    fun incrementShortFormInterceptSync(shieldId: String) {
+        val current = shieldsFlow.value.firstOrNull { it.id == shieldId } ?: return
+        val updated = current.copy(interceptsToday = current.interceptsToday + 1)
+        val db = writableDatabase
+        db.insertWithOnConflict("short_form_shields", null, updated.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        shieldsFlow.value = queryShields(db)
+    }
+
+    fun getStrictPassphraseSync(): String {
+        return progressFlow.value?.strictPassphrase ?: "I choose mindful presence"
+    }
+
+    fun recordMindfulInterceptVictorySync() {
+        val db = writableDatabase
+        val currentProgress = progressFlow.value ?: queryUserProgress(db) ?: UserProgressEntity()
+        val updatedCoins = currentProgress.leafCoins + 15
+        val newLevel = (updatedCoins / 120).coerceAtLeast(1)
+        val updatedProgress = currentProgress.copy(
+            leafCoins = updatedCoins,
+            regaLevel = newLevel,
+            savedMinutesToday = currentProgress.savedMinutesToday + 8,
+            mindfulBreathsCompleted = currentProgress.mindfulBreathsCompleted + 1
+        )
+        db.insertWithOnConflict("user_progress", null, updatedProgress.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        progressFlow.value = queryUserProgress(db)
+
+        val breathQuest = questsFlow.value.find { it.id == "quest_mindful_breath" }
+        if (breathQuest != null && !breathQuest.isCompleted) {
+            val nextProg = (breathQuest.currentProgress + 1).coerceAtMost(breathQuest.targetProgress)
+            val updatedQuest = breathQuest.copy(
+                currentProgress = nextProg,
+                isCompleted = nextProg >= breathQuest.targetProgress
+            )
+            db.insertWithOnConflict("daily_quests", null, updatedQuest.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+            questsFlow.value = queryQuests(db)
+        }
+    }
+
+    fun recordFiveMinGraceBreathSync() {
+        val db = writableDatabase
+        val currentProgress = progressFlow.value ?: queryUserProgress(db) ?: UserProgressEntity()
+        val updatedProgress = currentProgress.copy(
+            mindfulBreathsCompleted = currentProgress.mindfulBreathsCompleted + 1
+        )
+        db.insertWithOnConflict("user_progress", null, updatedProgress.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        progressFlow.value = queryUserProgress(db)
     }
 
     private fun refreshAllFlowsSync() {

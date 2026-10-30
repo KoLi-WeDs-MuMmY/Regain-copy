@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.example.ai.SinglePromptAiCoach
+import com.example.blocker.RegainOverlayWindowManager
+import com.example.data.AppLimitEntity
 import com.example.data.FocusSessionEntity
+import com.example.data.RegainDatabase
 import com.example.data.UserProgressEntity
 import com.example.ui.ActiveTimerUiState
 import com.example.ui.FocusTimerMode
@@ -15,6 +18,7 @@ import com.example.ui.formatExactDurationSeconds
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -92,5 +96,37 @@ class ExampleRobolectricTest {
         )
         assertEquals(120, uiState.totalFocusedSecondsToday)
         assertEquals("2m 0s", uiState.exactTotalFocusedFormatted)
+    }
+
+    @Test
+    fun `background overlay blocker tracks grace windows and synchronous database rules`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = RegainDatabase.getDatabase(context)
+
+        db.insertAppLimits(
+            listOf(
+                AppLimitEntity(
+                    packageName = "com.zhiliaoapp.musically",
+                    appName = "TikTok",
+                    category = "Short-Form Video",
+                    iconKey = "tiktok",
+                    dailyLimitMinutes = 20,
+                    usedTodayMinutes = 0,
+                    pickupsToday = 0,
+                    blockedCountToday = 0,
+                    isStrictLocked = true,
+                    isEnabled = true,
+                    isBlockedCompletely = true
+                )
+            )
+        )
+
+        val rule = db.getBlockingRuleForPackageSync("com.zhiliaoapp.musically")
+        assertNotNull(rule)
+        assertEquals("TikTok", rule?.appName)
+
+        assertFalse(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))
+        RegainOverlayWindowManager.grantFiveMinuteGrace("com.zhiliaoapp.musically")
+        assertTrue(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))
     }
 }

@@ -93,6 +93,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.blocker.RegainOverlayWindowManager
 import com.example.blocker.RegainPermissionsManager
 import com.example.notifications.RegainNotificationHelper
 import com.example.ui.AnimatedPopUpAlert
@@ -114,6 +115,7 @@ class MainActivity : ComponentActivity() {
 
     private var pendingInterceptTarget by mutableStateOf<String?>(null)
     private var pendingInterceptSubtitle by mutableStateOf<String?>(null)
+    private var pendingReturnedFromOverlayTarget by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,6 +153,14 @@ class MainActivity : ComponentActivity() {
                     lifecycleOwner.lifecycle.addObserver(observer)
                     onDispose {
                         lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
+
+                LaunchedEffect(pendingReturnedFromOverlayTarget) {
+                    val returnedTarget = pendingReturnedFromOverlayTarget
+                    if (!returnedTarget.isNullOrBlank()) {
+                        regainViewModel.handleReturnedFromOverlaySanctuary(returnedTarget)
+                        pendingReturnedFromOverlayTarget = null
                     }
                 }
 
@@ -195,11 +205,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun extractInterceptExtras(intent: Intent?) {
+        val returnedTarget = intent?.getStringExtra(RegainOverlayWindowManager.EXTRA_RETURNED_FROM_OVERLAY)
+        if (!returnedTarget.isNullOrBlank()) {
+            pendingReturnedFromOverlayTarget = returnedTarget
+            intent.removeExtra(RegainOverlayWindowManager.EXTRA_RETURNED_FROM_OVERLAY)
+            return
+        }
         val target = intent?.getStringExtra(RegainNotificationHelper.EXTRA_INTERCEPT_TARGET)
         val subtitle = intent?.getStringExtra(RegainNotificationHelper.EXTRA_INTERCEPT_SUBTITLE)
         if (!target.isNullOrBlank()) {
             pendingInterceptTarget = target
             pendingInterceptSubtitle = subtitle
+            intent.removeExtra(RegainNotificationHelper.EXTRA_INTERCEPT_TARGET)
+            intent.removeExtra(RegainNotificationHelper.EXTRA_INTERCEPT_SUBTITLE)
         }
     }
 }
@@ -442,7 +460,8 @@ private fun RegainScreenContent(
                     usedMinutes = app.usedTodayMinutes,
                     limitMinutes = app.dailyLimitMinutes,
                     isStrictLocked = app.isStrictLocked,
-                    keepDmsAvailable = false
+                    keepDmsAvailable = false,
+                    packageName = app.packageName
                 )
             },
             onToggleSchedule = viewModel::toggleScheduleEnabled,
