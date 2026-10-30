@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Soft Halo Glow -->
+    <path
+        android:fillColor="#E2E8DD"
+        android:pathData="M60,60m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" />
+    <!-- Sprouting Zen Leaf Stem & Leaves -->
+    <path
+        android:fillColor="#3A5A40"
+        android:pathData="M58,34 C58,20 62,14 62,14 C62,14 64,20 62,34 Z" />
+    <path
+        android:fillColor="#588157"
+        android:pathData="M60,22 C44,10 34,20 44,28 C50,33 58,26 60,22 Z" />
+    <path
+        android:fillColor="#A3B18A"
+        android:pathData="M61,20 C75,8 86,18 76,27 C70,32 63,25 61,20 Z" />
+    <!-- Rega Warm Pebble Spirit Body -->
+    <path
+        android:fillColor="#F7F5F0"
+        android:strokeColor="#3A5A40"
+        android:strokeWidth="3"
+        android:pathData="M30,72 C30,46 42,34 60,34 C78,34 90,46 90,72 C90,92 78,100 60,100 C42,100 30,92 30,72 Z" />
+    <!-- Rosy Terracotta Cheeks -->
+    <path
+        android:fillColor="#E9B8A6"
+        android:pathData="M42,68m-5,0a5,3.5 0,1 1,10 0a5,3.5 0,1 1,-10 0" />
+    <path
+        android:fillColor="#E9B8A6"
+        android:pathData="M78,68m-5,0a5,3.5 0,1 1,10 0a5,3.5 0,1 1,-10 0" />
+    <!-- Happy Zen Closed Eyes -->
+    <path
+        android:strokeColor="#283618"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M43,60 Q48,55 53,60" />
+    <path
+        android:strokeColor="#283618"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M67,60 Q72,55 77,60" />
+    <!-- Peaceful Smile -->
+    <path
+        android:strokeColor="#283618"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="M55,67 Q60,72 65,67" />
+    <!-- Golden Mini Hourglass Badge on Chest -->
+    <path
+        android:fillColor="#D47A55"
+        android:pathData="M54,79 L66,79 L62,85 L66,91 L54,91 L58,85 Z" />
+</vector>

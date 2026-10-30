@@ -1,0 +1,6 @@
+{
+  "name": "Regain Zen",
+  "description": "Mindful screen time tracker, short-form Reels and Shorts shield, Pomodoro deep focus timer with ambient soundscapes, virtual study rooms, and a 1-prompt-capped AI productivity coach.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

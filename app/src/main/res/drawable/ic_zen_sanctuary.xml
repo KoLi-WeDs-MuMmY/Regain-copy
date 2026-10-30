@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp"
+    android:height="140dp"
+    android:viewportWidth="360"
+    android:viewportHeight="140">
+    <!-- Warm Cream & Sage Botanical Sanctuary Landscape -->
+    <path
+        android:fillColor="#E6E4DA"
+        android:pathData="M0,0h360v140h-360z" />
+    <!-- Golden Zen Sun -->
+    <path
+        android:fillColor="#E09F3E"
+        android:fillAlpha="0.35"
+        android:pathData="M290,45m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0" />
+    <!-- Rolling Sage Hills -->
+    <path
+        android:fillColor="#A3B18A"
+        android:fillAlpha="0.55"
+        android:pathData="M0,95 Q90,60 190,90 T360,75 L360,140 L0,140 Z" />
+    <path
+        android:fillColor="#588157"
+        android:fillAlpha="0.65"
+        android:pathData="M0,112 Q120,82 240,108 T360,96 L360,140 L0,140 Z" />
+    <path
+        android:fillColor="#3A5A40"
+        android:fillAlpha="0.8"
+        android:pathData="M0,124 Q160,104 360,120 L360,140 L0,140 Z" />
+</vector>
