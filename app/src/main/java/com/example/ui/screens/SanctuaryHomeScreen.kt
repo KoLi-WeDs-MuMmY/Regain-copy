@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
@@ -80,6 +81,7 @@ fun SanctuaryHomeScreen(
     onNavigateTab: (RegainTab) -> Unit,
     onStartQuickFocus: () -> Unit,
     onPreviewReelsIntercept: () -> Unit,
+    onOpenPermissionsSetup: () -> Unit,
     onClaimQuest: (DailyQuestEntity) -> Unit,
     onUpdateDailyGoal: (Int) -> Unit
 ) {
@@ -112,6 +114,14 @@ fun SanctuaryHomeScreen(
                 isWide = layoutInfo.isTwoPaneCapable,
                 onStartQuickFocus = onStartQuickFocus,
                 onPreviewReelsIntercept = onPreviewReelsIntercept
+            )
+        }
+
+        item {
+            HomePermissionPromptBanner(
+                uiState = uiState,
+                onOpenPermissionsSetup = onOpenPermissionsSetup,
+                onNavigateToBlocker = { onNavigateTab(RegainTab.SHIELD) }
             )
         }
 
@@ -161,6 +171,89 @@ fun SanctuaryHomeScreen(
                 isTwoColumn = layoutInfo.gridColumns >= 2,
                 onClaimQuest = onClaimQuest
             )
+        }
+    }
+}
+
+@Composable
+private fun HomePermissionPromptBanner(
+    uiState: RegainUiState,
+    onOpenPermissionsSetup: () -> Unit,
+    onNavigateToBlocker: () -> Unit
+) {
+    val perms = uiState.permissionStatus
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("home_permissions_banner_card"),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (perms.allGranted) {
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+            } else {
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = null,
+                        tint = if (perms.allGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                Column {
+                    Text(
+                        text = if (perms.allGranted) {
+                            "App Blocker & Screen Pop-Up Shield Active (${uiState.activelyBlockedAppsCount} Apps Blocked)"
+                        } else {
+                            "Enable App Blocker & Screen Pop-Up Permissions (${perms.grantedCount}/4)"
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (perms.allGranted) {
+                            "All permissions granted to block chosen apps and display breathing pop-ups over Reels & Shorts."
+                        } else {
+                            "Grant permission to control, block apps, and display pop-up animations to pull you out of Shorts & Reels."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Button(
+                onClick = if (perms.allGranted) onNavigateToBlocker else onOpenPermissionsSetup,
+                modifier = Modifier.testTag("home_grant_permissions_button"),
+                shape = RoundedCornerShape(50),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = if (perms.allGranted) "App Blocker" else "Permissions",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
         }
     }
 }
@@ -216,7 +309,7 @@ private fun ZenSanctuaryHeroBanner(
                         )
                         Column {
                             Text(
-                                text = "Regain Zen Sanctuary",
+                                text = "Regain Zen Sanctuary v1.1",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -264,7 +357,11 @@ private fun ZenSanctuaryHeroBanner(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (uiState.timerState.isRunning) "Focus Active" else "Start Focus Timer",
+                            text = if (uiState.timerState.isRunning) {
+                                "Studying (${uiState.timerState.exactElapsedFormatted})"
+                            } else {
+                                "Start Focus Timer"
+                            },
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -284,7 +381,7 @@ private fun ZenSanctuaryHeroBanner(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Test Reels Shield",
+                            text = "Test Pop-Up Shield",
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -446,13 +543,13 @@ private fun ScreenTimeBudgetCard(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     MetricStatRow(
-                        label = "Reels/Shorts Saved",
+                        label = "Apps & Reels Blocked",
                         value = "${uiState.totalShortFormInterceptsToday} blocks",
                         accentColor = MaterialTheme.colorScheme.primary
                     )
                     MetricStatRow(
-                        label = "Deep Focus Done",
-                        value = "${uiState.totalFocusedMinutesToday} mins",
+                        label = "Exact Study Time",
+                        value = uiState.exactTotalFocusedFormatted,
                         accentColor = MaterialTheme.colorScheme.secondary
                     )
                     MetricStatRow(
@@ -477,7 +574,7 @@ private fun ScreenTimeBudgetCard(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Customize App Limits & Reels Shield")
+                Text("Choose Apps to Block & Manage Pop-Up Shield")
             }
         }
     }
@@ -589,8 +686,8 @@ private fun RegaCompanionAndActionsColumn(
             QuickFeatureCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Timer,
-                title = "Pomodoro & Rain",
-                subtitle = "25/5 Timer + Offline Synth Audio",
+                title = "Exact Study Timer",
+                subtitle = "Records exact seconds studied + Rain",
                 testTag = "quick_card_focus_studio",
                 onClick = { onNavigateTab(RegainTab.FOCUS) }
             )
@@ -629,7 +726,7 @@ private fun QuickFeatureCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Box(
                 modifier = Modifier

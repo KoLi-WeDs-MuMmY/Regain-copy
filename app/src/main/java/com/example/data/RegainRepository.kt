@@ -3,13 +3,22 @@ package com.example.data
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.Intent
 import android.os.Process
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+data class SelectableDeviceApp(
+    val packageName: String,
+    val appName: String,
+    val category: String
+)
 
 class RegainRepository(
     private val dao: RegainDao,
@@ -40,6 +49,58 @@ class RegainRepository(
         } catch (_: Exception) {
             false
         }
+    }
+
+    suspend fun getDiscoverableAppsForBlocker(): List<SelectableDeviceApp> = withContext(Dispatchers.IO) {
+        val discovered = mutableMapOf<String, SelectableDeviceApp>()
+
+        // 1. Query real installed launchable apps on the user's device
+        try {
+            val pm = appContext.packageManager
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+            for (info in resolveInfos) {
+                val pkg = info.activityInfo?.packageName ?: continue
+                if (pkg == appContext.packageName) continue
+                val label = info.loadLabel(pm)?.toString()?.trim().orEmpty()
+                if (label.isNotBlank()) {
+                    discovered[pkg] = SelectableDeviceApp(
+                        packageName = pkg,
+                        appName = label,
+                        category = "Installed Device App"
+                    )
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        // 2. Include popular distracting apps catalog so user can pre-block any app
+        val catalog = listOf(
+            SelectableDeviceApp("com.instagram.android", "Instagram", "Social & Reels"),
+            SelectableDeviceApp("com.google.android.youtube", "YouTube", "Video & Shorts"),
+            SelectableDeviceApp("com.zhiliaoapp.musically", "TikTok", "Short-Form Video"),
+            SelectableDeviceApp("com.twitter.android", "X (Twitter)", "News & Feeds"),
+            SelectableDeviceApp("com.reddit.frontpage", "Reddit", "Forums & Threads"),
+            SelectableDeviceApp("com.snapchat.android", "Snapchat", "Messaging & Spotlight"),
+            SelectableDeviceApp("com.facebook.katana", "Facebook", "Social Feed & Reels"),
+            SelectableDeviceApp("com.netflix.mediaclient", "Netflix", "Video Streaming"),
+            SelectableDeviceApp("com.discord", "Discord", "Communities & Chat"),
+            SelectableDeviceApp("tv.twitch.android.app", "Twitch", "Live Streams"),
+            SelectableDeviceApp("com.pinterest", "Pinterest", "Visual Discovery"),
+            SelectableDeviceApp("com.whatsapp", "WhatsApp", "Messaging"),
+            SelectableDeviceApp("org.telegram.messenger", "Telegram", "Channels & Chat"),
+            SelectableDeviceApp("com.supercell.clashroyale", "Clash Royale", "Mobile Gaming"),
+            SelectableDeviceApp("com.roblox.client", "Roblox", "Mobile Gaming")
+        )
+        for (item in catalog) {
+            if (!discovered.containsKey(item.packageName)) {
+                discovered[item.packageName] = item
+            }
+        }
+
+        discovered.values.sortedBy { it.appName.lowercase(Locale.US) }
     }
 
     suspend fun ensureSeededAndSyncSystemUsage() {
@@ -74,7 +135,8 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = true,
-                        isEnabled = true
+                        isEnabled = true,
+                        isBlockedCompletely = false
                     ),
                     AppLimitEntity(
                         packageName = "com.google.android.youtube",
@@ -86,7 +148,8 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = false,
-                        isEnabled = true
+                        isEnabled = true,
+                        isBlockedCompletely = false
                     ),
                     AppLimitEntity(
                         packageName = "com.zhiliaoapp.musically",
@@ -98,7 +161,8 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = true,
-                        isEnabled = true
+                        isEnabled = true,
+                        isBlockedCompletely = true
                     ),
                     AppLimitEntity(
                         packageName = "com.twitter.android",
@@ -110,7 +174,8 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = false,
-                        isEnabled = true
+                        isEnabled = true,
+                        isBlockedCompletely = false
                     ),
                     AppLimitEntity(
                         packageName = "com.reddit.frontpage",
@@ -122,7 +187,8 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = false,
-                        isEnabled = true
+                        isEnabled = true,
+                        isBlockedCompletely = false
                     ),
                     AppLimitEntity(
                         packageName = "com.snapchat.android",
@@ -134,38 +200,14 @@ class RegainRepository(
                         pickupsToday = 0,
                         blockedCountToday = 0,
                         isStrictLocked = false,
-                        isEnabled = false
+                        isEnabled = false,
+                        isBlockedCompletely = false
                     )
                 )
             )
         }
 
-        // Merge real device UsageStats if permission is granted
-        if (hasUsageStatsPermission()) {
-            try {
-                val usm = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-                val cal = Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                }
-                val stats = usm.queryUsageStats(
-                    UsageStatsManager.INTERVAL_DAILY,
-                    cal.timeInMillis,
-                    System.currentTimeMillis()
-                )
-                val currentList = dao.getAllAppLimits().firstOrNull().orEmpty()
-                stats?.forEach { stat ->
-                    val match = currentList.find { it.packageName == stat.packageName }
-                    val minutes = (stat.totalTimeInForeground / 60000L).toInt()
-                    if (match != null && minutes > 0) {
-                        dao.updateAppLimit(match.copy(usedTodayMinutes = minutes))
-                    }
-                }
-            } catch (_: Exception) {
-                // Keep local records if UsageStats query fails
-            }
-        }
+        syncSystemUsageNow()
 
         val currentShields = dao.getAllShortFormShields().firstOrNull()
         if (currentShields.isNullOrEmpty()) {
@@ -230,9 +272,6 @@ class RegainRepository(
             )
         }
 
-        // Sessions start empty and calculate as user focuses
-        // val currentSessions = dao.getAllFocusSessions().firstOrNull()
-
         val currentSchedules = dao.getAllSchedules().firstOrNull()
         if (currentSchedules.isNullOrEmpty()) {
             dao.insertSchedules(
@@ -281,8 +320,8 @@ class RegainRepository(
                     ),
                     DailyQuestEntity(
                         id = "quest_reels_shield",
-                        title = "Keep Reels & Shorts Shield Active",
-                        subtitle = "Block infinite vertical video feeds while keeping DMs open",
+                        title = "Block an App or Activate Reels Shield",
+                        subtitle = "Choose an app to block or toggle a short-form feed shield",
                         rewardCoins = 35,
                         currentProgress = 0,
                         targetProgress = 1,
@@ -304,7 +343,35 @@ class RegainRepository(
         }
     }
 
+    suspend fun syncSystemUsageNow() {
+        if (hasUsageStatsPermission()) {
+            try {
+                val usm = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                }
+                val stats = usm.queryUsageStats(
+                    UsageStatsManager.INTERVAL_DAILY,
+                    cal.timeInMillis,
+                    System.currentTimeMillis()
+                )
+                val currentList = dao.getAllAppLimits().firstOrNull().orEmpty()
+                stats?.forEach { stat ->
+                    val match = currentList.find { it.packageName == stat.packageName }
+                    val minutes = (stat.totalTimeInForeground / 60000L).toInt()
+                    if (match != null && minutes >= 0) {
+                        dao.updateAppLimit(match.copy(usedTodayMinutes = minutes))
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     suspend fun updateAppLimit(entity: AppLimitEntity) = dao.updateAppLimit(entity)
+    suspend fun deleteAppLimit(packageName: String) = dao.deleteAppLimit(packageName)
     suspend fun updateShortFormShield(entity: ShortFormShieldEntity) = dao.updateShortFormShield(entity)
     suspend fun insertFocusSession(session: FocusSessionEntity) = dao.insertFocusSession(session)
     suspend fun updateSchedule(schedule: ScheduleBlockEntity) = dao.updateSchedule(schedule)

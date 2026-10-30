@@ -20,7 +20,8 @@ data class AppLimitEntity(
     val pickupsToday: Int,
     val blockedCountToday: Int,
     val isStrictLocked: Boolean,
-    val isEnabled: Boolean
+    val isEnabled: Boolean,
+    val isBlockedCompletely: Boolean = false
 )
 
 data class ShortFormShieldEntity(
@@ -41,10 +42,25 @@ data class FocusSessionEntity(
     val tag: String,
     val mode: String, // "POMODORO", "COUNTDOWN", "STOPWATCH"
     val durationMinutes: Int,
+    val durationSeconds: Int = 0,
     val ambientSound: String,
     val coinsEarned: Int,
     val completedAtTimestamp: Long = System.currentTimeMillis()
-)
+) {
+    val exactDurationFormatted: String
+        get() {
+            val totalSecs = if (durationSeconds > 0) durationSeconds else durationMinutes * 60
+            val hrs = totalSecs / 3600
+            val mins = (totalSecs % 3600) / 60
+            val secs = totalSecs % 60
+            return when {
+                hrs > 0 -> "${hrs}h ${mins}m ${secs}s"
+                mins > 0 && secs > 0 -> "${mins}m ${secs}s"
+                mins > 0 -> "${mins}m 0s"
+                else -> "${secs}s"
+            }
+        }
+}
 
 data class ScheduleBlockEntity(
     val id: Long = 0,
@@ -98,6 +114,7 @@ interface RegainDao {
     fun getAllAppLimits(): Flow<List<AppLimitEntity>>
     suspend fun insertAppLimits(items: List<AppLimitEntity>)
     suspend fun updateAppLimit(item: AppLimitEntity)
+    suspend fun deleteAppLimit(packageName: String)
 
     fun getAllShortFormShields(): Flow<List<ShortFormShieldEntity>>
     suspend fun insertShortFormShields(items: List<ShortFormShieldEntity>)
@@ -126,7 +143,7 @@ interface RegainDao {
 }
 
 class RegainDatabase private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "regain_zen_offline.db", null, 1),
+    SQLiteOpenHelper(context.applicationContext, "regain_zen_offline_v11.db", null, 2),
     RegainDao {
 
     private val appLimitsFlow = MutableStateFlow<List<AppLimitEntity>>(emptyList())
@@ -156,7 +173,8 @@ class RegainDatabase private constructor(context: Context) :
                 pickupsToday INTEGER NOT NULL,
                 blockedCountToday INTEGER NOT NULL,
                 isStrictLocked INTEGER NOT NULL,
-                isEnabled INTEGER NOT NULL
+                isEnabled INTEGER NOT NULL,
+                isBlockedCompletely INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -183,6 +201,7 @@ class RegainDatabase private constructor(context: Context) :
                 tag TEXT NOT NULL,
                 mode TEXT NOT NULL,
                 durationMinutes INTEGER NOT NULL,
+                durationSeconds INTEGER NOT NULL DEFAULT 0,
                 ambientSound TEXT NOT NULL,
                 coinsEarned INTEGER NOT NULL,
                 completedAtTimestamp INTEGER NOT NULL
@@ -253,6 +272,30 @@ class RegainDatabase private constructor(context: Context) :
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         onCreate(db)
+        try {
+            db.execSQL("ALTER TABLE app_limits ADD COLUMN isBlockedCompletely INTEGER NOT NULL DEFAULT 0")
+        } catch (_: Exception) {
+        }
+        try {
+            db.execSQL("ALTER TABLE focus_sessions ADD COLUMN durationSeconds INTEGER NOT NULL DEFAULT 0")
+        } catch (_: Exception) {
+        }
+    }
+
+    fun getBlockingRuleForPackageSync(packageName: String): AppLimitEntity? {
+        return appLimitsFlow.value.firstOrNull { app ->
+            app.packageName == packageName &&
+                app.isEnabled &&
+                (app.isBlockedCompletely || app.usedTodayMinutes >= app.dailyLimitMinutes)
+        }
+    }
+
+    fun incrementBlockCountSync(packageName: String) {
+        val current = appLimitsFlow.value.firstOrNull { it.packageName == packageName } ?: return
+        val updated = current.copy(blockedCountToday = current.blockedCountToday + 1)
+        val db = writableDatabase
+        db.insertWithOnConflict("app_limits", null, updated.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        appLimitsFlow.value = queryAppLimits(db)
     }
 
     private fun refreshAllFlowsSync() {
@@ -268,7 +311,8 @@ class RegainDatabase private constructor(context: Context) :
 
     private fun queryAppLimits(db: SQLiteDatabase): List<AppLimitEntity> {
         val list = mutableListOf<AppLimitEntity>()
-        db.rawQuery("SELECT * FROM app_limits ORDER BY usedTodayMinutes DESC", null).use { c ->
+        db.rawQuery("SELECT * FROM app_limits ORDER BY isBlockedCompletely DESC, usedTodayMinutes DESC", null).use { c ->
+            val blockedCol = c.getColumnIndex("isBlockedCompletely")
             while (c.moveToNext()) {
                 list.add(
                     AppLimitEntity(
@@ -281,7 +325,8 @@ class RegainDatabase private constructor(context: Context) :
                         pickupsToday = c.getInt(c.getColumnIndexOrThrow("pickupsToday")),
                         blockedCountToday = c.getInt(c.getColumnIndexOrThrow("blockedCountToday")),
                         isStrictLocked = c.getInt(c.getColumnIndexOrThrow("isStrictLocked")) != 0,
-                        isEnabled = c.getInt(c.getColumnIndexOrThrow("isEnabled")) != 0
+                        isEnabled = c.getInt(c.getColumnIndexOrThrow("isEnabled")) != 0,
+                        isBlockedCompletely = if (blockedCol >= 0) c.getInt(blockedCol) != 0 else false
                     )
                 )
             }
@@ -314,14 +359,18 @@ class RegainDatabase private constructor(context: Context) :
     private fun querySessions(db: SQLiteDatabase): List<FocusSessionEntity> {
         val list = mutableListOf<FocusSessionEntity>()
         db.rawQuery("SELECT * FROM focus_sessions ORDER BY completedAtTimestamp DESC", null).use { c ->
+            val secCol = c.getColumnIndex("durationSeconds")
             while (c.moveToNext()) {
+                val mins = c.getInt(c.getColumnIndexOrThrow("durationMinutes"))
+                val secs = if (secCol >= 0) c.getInt(secCol) else mins * 60
                 list.add(
                     FocusSessionEntity(
                         id = c.getLong(c.getColumnIndexOrThrow("id")),
                         title = c.getString(c.getColumnIndexOrThrow("title")),
                         tag = c.getString(c.getColumnIndexOrThrow("tag")),
                         mode = c.getString(c.getColumnIndexOrThrow("mode")),
-                        durationMinutes = c.getInt(c.getColumnIndexOrThrow("durationMinutes")),
+                        durationMinutes = mins,
+                        durationSeconds = secs,
                         ambientSound = c.getString(c.getColumnIndexOrThrow("ambientSound")),
                         coinsEarned = c.getInt(c.getColumnIndexOrThrow("coinsEarned")),
                         completedAtTimestamp = c.getLong(c.getColumnIndexOrThrow("completedAtTimestamp"))
@@ -436,6 +485,12 @@ class RegainDatabase private constructor(context: Context) :
     override suspend fun updateAppLimit(item: AppLimitEntity) = withContext(Dispatchers.IO) {
         val db = writableDatabase
         db.insertWithOnConflict("app_limits", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        appLimitsFlow.value = queryAppLimits(db)
+    }
+
+    override suspend fun deleteAppLimit(packageName: String) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.delete("app_limits", "packageName = ?", arrayOf(packageName))
         appLimitsFlow.value = queryAppLimits(db)
     }
 
@@ -584,6 +639,7 @@ private fun AppLimitEntity.toContentValues() = ContentValues().apply {
     put("blockedCountToday", blockedCountToday)
     put("isStrictLocked", if (isStrictLocked) 1 else 0)
     put("isEnabled", if (isEnabled) 1 else 0)
+    put("isBlockedCompletely", if (isBlockedCompletely) 1 else 0)
 }
 
 private fun ShortFormShieldEntity.toContentValues() = ContentValues().apply {
@@ -604,6 +660,7 @@ private fun FocusSessionEntity.toContentValues(includeId: Boolean) = ContentValu
     put("tag", tag)
     put("mode", mode)
     put("durationMinutes", durationMinutes)
+    put("durationSeconds", durationSeconds)
     put("ambientSound", ambientSound)
     put("coinsEarned", coinsEarned)
     put("completedAtTimestamp", completedAtTimestamp)

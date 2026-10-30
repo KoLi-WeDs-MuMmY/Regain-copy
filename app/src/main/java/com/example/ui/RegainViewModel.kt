@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.ai.SinglePromptAiCoach
 import com.example.audio.AmbientSoundPreset
 import com.example.audio.ZenSoundEngine
+import com.example.blocker.BlockerPermissionStatus
+import com.example.blocker.RegainPermissionsManager
 import com.example.data.AiCoachInsightEntity
 import com.example.data.AppLimitEntity
 import com.example.data.DailyQuestEntity
@@ -13,8 +15,10 @@ import com.example.data.FocusSessionEntity
 import com.example.data.RegainDatabase
 import com.example.data.RegainRepository
 import com.example.data.ScheduleBlockEntity
+import com.example.data.SelectableDeviceApp
 import com.example.data.ShortFormShieldEntity
 import com.example.data.UserProgressEntity
+import com.example.notifications.RegainNotificationHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,11 +29,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 enum class RegainTab(val route: String, val label: String) {
     SANCTUARY("sanctuary", "Sanctuary"),
     FOCUS("focus", "Focus"),
-    SHIELD("shield", "Shield"),
+    SHIELD("shield", "App Blocker"),
     ROOMS("rooms", "Study Rooms"),
     AI_COACH("ai_coach", "AI Coach")
 }
@@ -40,6 +45,15 @@ enum class FocusTimerMode(val label: String, val defaultMinutes: Int) {
     COUNTDOWN("Custom Timer", 30),
     STOPWATCH("Flow Stopwatch", 0)
 }
+
+data class AnimatedPopUpAlert(
+    val id: Long = System.currentTimeMillis(),
+    val title: String,
+    val message: String,
+    val badgeText: String = "Regain Zen v1.1",
+    val actionLabel: String? = null,
+    val isWarning: Boolean = false
+)
 
 data class VirtualStudyPeer(
     val id: String,
@@ -82,7 +96,10 @@ data class ActiveTimerUiState(
     val selectedSound: AmbientSoundPreset = AmbientSoundPreset.ZEN_RAIN,
     val soundVolume: Float = 0.5f,
     val isSoundPlayingPreview: Boolean = false
-)
+) {
+    val exactElapsedFormatted: String
+        get() = formatExactDurationSeconds(elapsedSeconds)
+}
 
 data class StudyRoomUiState(
     val joinedRoomId: String? = "room_kyoto_zen",
@@ -107,8 +124,14 @@ data class RegainUiState(
     val interceptState: MindfulInterceptState = MindfulInterceptState(),
     val isGeneratingAiInsight: Boolean = false,
     val statusBannerMessage: String? = null,
-    val hasSystemUsagePermission: Boolean = false
+    val popUpAlert: AnimatedPopUpAlert? = null,
+    val permissionStatus: BlockerPermissionStatus = BlockerPermissionStatus(),
+    val showPermissionsDialog: Boolean = false,
+    val discoverableApps: List<SelectableDeviceApp> = emptyList()
 ) {
+    val hasSystemUsagePermission: Boolean
+        get() = permissionStatus.hasUsageStatsPermission
+
     val todayAiInsight: AiCoachInsightEntity?
         get() = aiInsights.firstOrNull { it.dateKey == todayDateKey }
 
@@ -122,16 +145,39 @@ data class RegainUiState(
         get() = appLimits.sumOf { it.pickupsToday }
 
     val totalShortFormInterceptsToday: Int
-        get() = shortFormShields.sumOf { it.interceptsToday }
+        get() = shortFormShields.sumOf { it.interceptsToday } + appLimits.sumOf { it.blockedCountToday }
+
+    val activelyBlockedAppsCount: Int
+        get() = appLimits.count { it.isEnabled && it.isBlockedCompletely }
+
+    val totalFocusedSecondsToday: Int
+        get() = focusSessions.sumOf {
+            if (it.durationSeconds > 0) it.durationSeconds else it.durationMinutes * 60
+        } + studyRoomState.roomSessionSeconds + (if (timerState.isRunning) timerState.elapsedSeconds else 0)
 
     val totalFocusedMinutesToday: Int
-        get() = focusSessions.sumOf { it.durationMinutes } +
-            (studyRoomState.roomSessionSeconds / 60) +
-            (if (timerState.isRunning) timerState.elapsedSeconds / 60 else 0)
+        get() = totalFocusedSecondsToday / 60
+
+    val exactTotalFocusedFormatted: String
+        get() = formatExactDurationSeconds(totalFocusedSecondsToday)
+}
+
+fun formatExactDurationSeconds(totalSeconds: Int): String {
+    val clamped = totalSeconds.coerceAtLeast(0)
+    val hrs = clamped / 3600
+    val mins = (clamped % 3600) / 60
+    val secs = clamped % 60
+    return when {
+        hrs > 0 -> "${hrs}h ${mins}m ${secs}s"
+        mins > 0 && secs > 0 -> "${mins}m ${secs}s"
+        mins > 0 -> "${mins}m 0s"
+        else -> "${secs}s"
+    }
 }
 
 class RegainViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val appContext = application.applicationContext
     private val database = RegainDatabase.getDatabase(application)
     private val repository = RegainRepository(database.regainDao(), application)
     private val soundEngine = ZenSoundEngine(viewModelScope)
@@ -143,6 +189,10 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     private val _interceptState = MutableStateFlow(MindfulInterceptState())
     private val _isGeneratingAi = MutableStateFlow(false)
     private val _bannerMessage = MutableStateFlow<String?>(null)
+    private val _popUpAlert = MutableStateFlow<AnimatedPopUpAlert?>(null)
+    private val _permissionStatus = MutableStateFlow(RegainPermissionsManager.checkAllPermissions(application))
+    private val _showPermissionsDialog = MutableStateFlow(false)
+    private val _discoverableApps = MutableStateFlow<List<SelectableDeviceApp>>(emptyList())
 
     private var timerJob: Job? = null
     private var roomTickerJob: Job? = null
@@ -167,13 +217,23 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         LocalUiBundle(tab, timer, rooms, intercept, generatingAi)
     }
 
+    private val overlayAndPermsFlow = combine(
+        _bannerMessage,
+        _popUpAlert,
+        _permissionStatus,
+        _showPermissionsDialog,
+        _discoverableApps
+    ) { banner, popUp, perms, showPerms, apps ->
+        OverlayPermsBundle(banner, popUp, perms, showPerms, apps)
+    }
+
     val uiState: StateFlow<RegainUiState> = combine(
         dbCombinedFlow,
         repository.userProgress,
         repository.aiInsights,
         localUiFlow,
-        _bannerMessage
-    ) { db, progress, insights, local, banner ->
+        overlayAndPermsFlow
+    ) { db, progress, insights, local, overlay ->
         RegainUiState(
             currentTab = local.tab,
             appLimits = db.apps,
@@ -188,18 +248,27 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             studyRoomState = local.rooms,
             interceptState = local.intercept,
             isGeneratingAiInsight = local.generatingAi,
-            statusBannerMessage = banner,
-            hasSystemUsagePermission = repository.hasUsageStatsPermission()
+            statusBannerMessage = overlay.banner,
+            popUpAlert = overlay.popUp,
+            permissionStatus = overlay.perms,
+            showPermissionsDialog = overlay.showPerms,
+            discoverableApps = overlay.discoverableApps
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = RegainUiState(todayDateKey = repository.todayDateKey())
+        initialValue = RegainUiState(
+            todayDateKey = repository.todayDateKey(),
+            permissionStatus = RegainPermissionsManager.checkAllPermissions(application)
+        )
     )
 
     init {
+        RegainNotificationHelper.ensureChannelsCreated(appContext)
         viewModelScope.launch {
             repository.ensureSeededAndSyncSystemUsage()
+            _discoverableApps.value = repository.getDiscoverableAppsForBlocker()
+            refreshPermissionsStatus()
         }
     }
 
@@ -209,13 +278,59 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearBannerMessage() {
         _bannerMessage.value = null
+        _popUpAlert.value = null
     }
 
-    private fun postBanner(message: String) {
+    fun openPermissionsDialog() {
+        refreshPermissionsStatus()
+        _showPermissionsDialog.value = true
+    }
+
+    fun dismissPermissionsDialog() {
+        _showPermissionsDialog.value = false
+    }
+
+    fun refreshPermissionsStatus() {
+        val status = RegainPermissionsManager.checkAllPermissions(appContext)
+        _permissionStatus.value = status
+        if (status.hasUsageStatsPermission) {
+            viewModelScope.launch {
+                repository.syncSystemUsageNow()
+            }
+        }
+    }
+
+    fun handleIncomingInterceptIntent(targetName: String?, subtitle: String?) {
+        if (targetName.isNullOrBlank()) return
+        val matchedApp = uiState.value.appLimits.find {
+            it.appName.equals(targetName, ignoreCase = true) || it.packageName == targetName
+        }
+        triggerMindfulIntercept(
+            targetName = matchedApp?.appName ?: targetName,
+            targetSubtitle = subtitle ?: "Blocked by Regain Zen App & Shorts Shield",
+            usedMinutes = matchedApp?.usedTodayMinutes ?: 0,
+            limitMinutes = matchedApp?.dailyLimitMinutes ?: 30,
+            isStrictLocked = matchedApp?.isStrictLocked ?: false,
+            keepDmsAvailable = false
+        )
+    }
+
+    private fun postBanner(
+        message: String,
+        title: String = "Regain Zen Pop-Up",
+        badgeText: String = "Mindful Update",
+        isWarning: Boolean = false
+    ) {
         _bannerMessage.value = message
+        _popUpAlert.value = AnimatedPopUpAlert(
+            title = title,
+            message = message,
+            badgeText = badgeText,
+            isWarning = isWarning
+        )
     }
 
-    // --- FOCUS & POMODORO TIMER ---
+    // --- FOCUS & POMODORO TIMER (RECORDS EXACT TIME STUDIED) ---
 
     fun selectTimerMode(mode: FocusTimerMode) {
         if (_timerState.value.isRunning) return
@@ -310,6 +425,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     val s = _timerState.value
                     val nextElapsed = s.elapsedSeconds + 1
                     if (s.mode != FocusTimerMode.STOPWATCH && nextElapsed >= s.totalTargetSeconds) {
+                        _timerState.update { it.copy(elapsedSeconds = s.totalTargetSeconds) }
                         completeCurrentFocusSession()
                         break
                     } else {
@@ -333,15 +449,29 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /**
+     * Records the EXACT time the user studied (elapsedSeconds), never the target preset duration clicked on.
+     */
     fun completeCurrentFocusSession() {
+        val s = _timerState.value
+        val exactStudiedSeconds = s.elapsedSeconds
+        if (exactStudiedSeconds <= 0) {
+            postBanner(
+                message = "Start the study timer first! Only the exact time you actually studied is recorded (currently 0s).",
+                title = "0s Studied So Far",
+                badgeText = "Exact Timer",
+                isWarning = true
+            )
+            return
+        }
+
         timerJob?.cancel()
         soundEngine.stop()
-        val s = _timerState.value
-        val focusedMinutes = when (s.mode) {
-            FocusTimerMode.STOPWATCH -> (s.elapsedSeconds / 60).coerceAtLeast(10)
-            else -> (s.totalTargetSeconds / 60).coerceAtLeast(5)
-        }
-        val coins = focusedMinutes
+
+        val exactMinutesFloor = exactStudiedSeconds / 60
+        val exactFormatted = formatExactDurationSeconds(exactStudiedSeconds)
+        val coins = (exactStudiedSeconds / 60).coerceAtLeast(1)
+
         _timerState.update {
             it.copy(
                 isRunning = false,
@@ -349,13 +479,15 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 isSoundPlayingPreview = false
             )
         }
+
         viewModelScope.launch {
             repository.insertFocusSession(
                 FocusSessionEntity(
                     title = "${s.selectedTag} (${s.mode.label})",
                     tag = s.selectedTag,
                     mode = s.mode.name,
-                    durationMinutes = focusedMinutes,
+                    durationMinutes = exactMinutesFloor,
+                    durationSeconds = exactStudiedSeconds,
                     ambientSound = s.selectedSound.title,
                     coinsEarned = coins
                 )
@@ -376,7 +508,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     regaLevel = newLevel,
                     streakDays = updatedStreak,
                     regaStageName = stageName,
-                    savedMinutesToday = progress.savedMinutesToday + (focusedMinutes / 2)
+                    savedMinutesToday = progress.savedMinutesToday + (exactMinutesFloor / 2)
                 )
             )
             val focusQuest = uiState.value.dailyQuests.find { it.id == "quest_focus_25" }
@@ -385,15 +517,145 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     focusQuest.copy(currentProgress = 1, isCompleted = true)
                 )
             }
-            postBanner("Completed ${focusedMinutes}m of ${s.selectedTag}! Rega earned +$coins Leaf Coins.")
+
+            RegainNotificationHelper.sendStudySessionCompletedNotification(
+                context = appContext,
+                tag = s.selectedTag,
+                exactDurationFormatted = exactFormatted,
+                coinsEarned = coins
+            )
+
+            postBanner(
+                message = "Recorded exact study time: $exactFormatted of ${s.selectedTag}! Rega earned +$coins Leaf Coins.",
+                title = "Exact Study Time Saved: $exactFormatted",
+                badgeText = "+$coins Leaf Coins"
+            )
         }
     }
 
-    // --- APP LIMITS, REELS/SHORTS SHIELD & SCHEDULES ---
+    // --- APP BLOCKER, APP LIMITS, REELS/SHORTS SHIELD & SCHEDULES ---
+
+    fun toggleBlockAppCompletely(app: AppLimitEntity) {
+        val nextBlocked = !app.isBlockedCompletely
+        if (app.isStrictLocked && app.isBlockedCompletely && !nextBlocked) {
+            triggerMindfulIntercept(
+                targetName = app.appName,
+                targetSubtitle = "Strict Mode App Blocker Active",
+                usedMinutes = app.usedTodayMinutes,
+                limitMinutes = app.dailyLimitMinutes,
+                isStrictLocked = true,
+                keepDmsAvailable = false
+            )
+            return
+        }
+        viewModelScope.launch {
+            val updated = app.copy(
+                isBlockedCompletely = nextBlocked,
+                isEnabled = if (nextBlocked) true else app.isEnabled
+            )
+            repository.updateAppLimit(updated)
+            val shieldQuest = uiState.value.dailyQuests.find { it.id == "quest_reels_shield" }
+            if (shieldQuest != null && !shieldQuest.isCompleted && nextBlocked) {
+                repository.updateDailyQuest(
+                    shieldQuest.copy(currentProgress = 1, isCompleted = true)
+                )
+            }
+            RegainNotificationHelper.sendAppBlockerUpdatedNotification(
+                context = appContext,
+                appName = app.appName,
+                isBlocked = nextBlocked
+            )
+            postBanner(
+                message = if (nextBlocked) {
+                    "${app.appName} is now BLOCKED! Opening ${app.appName} will trigger an animated pop-up shield."
+                } else {
+                    "Immediate block lifted for ${app.appName}. Daily limit (${app.dailyLimitMinutes}m) remains active."
+                },
+                title = if (nextBlocked) "Blocked ${app.appName}" else "Unblocked ${app.appName}",
+                badgeText = "App Blocker"
+            )
+        }
+    }
+
+    fun addOrBlockSelectedApp(
+        selectableApp: SelectableDeviceApp,
+        blockImmediately: Boolean,
+        dailyLimitMinutes: Int,
+        strictMode: Boolean
+    ) {
+        val cleanName = selectableApp.appName.trim()
+        if (cleanName.isBlank()) return
+        val pkg = selectableApp.packageName.ifBlank {
+            "com.custom.blocked." + cleanName.lowercase(Locale.US).replace(Regex("[^a-z0-9]"), "")
+        }
+        val iconKey = cleanName.lowercase(Locale.US).replace(Regex("[^a-z0-9]"), "").take(14).ifBlank { "app" }
+
+        viewModelScope.launch {
+            val existing = uiState.value.appLimits.find { it.packageName == pkg }
+            val entity = AppLimitEntity(
+                packageName = pkg,
+                appName = cleanName,
+                category = selectableApp.category.ifBlank { "Blocked App" },
+                iconKey = existing?.iconKey ?: iconKey,
+                dailyLimitMinutes = dailyLimitMinutes.coerceIn(5, 180),
+                usedTodayMinutes = existing?.usedTodayMinutes ?: 0,
+                pickupsToday = existing?.pickupsToday ?: 0,
+                blockedCountToday = existing?.blockedCountToday ?: 0,
+                isStrictLocked = strictMode,
+                isEnabled = true,
+                isBlockedCompletely = blockImmediately
+            )
+            repository.updateAppLimit(entity)
+
+            val shieldQuest = uiState.value.dailyQuests.find { it.id == "quest_reels_shield" }
+            if (shieldQuest != null && !shieldQuest.isCompleted) {
+                repository.updateDailyQuest(
+                    shieldQuest.copy(currentProgress = 1, isCompleted = true)
+                )
+            }
+
+            RegainNotificationHelper.sendAppBlockerUpdatedNotification(
+                context = appContext,
+                appName = cleanName,
+                isBlocked = blockImmediately
+            )
+
+            postBanner(
+                message = if (blockImmediately) {
+                    "Added & blocked $cleanName! Regain Zen will intercept it with a pop-up animation."
+                } else {
+                    "Added $cleanName with a ${entity.dailyLimitMinutes}m daily limit."
+                },
+                title = "App Added to Blocker",
+                badgeText = cleanName
+            )
+        }
+    }
+
+    fun removeAppFromBlocker(app: AppLimitEntity) {
+        if (app.isStrictLocked && (app.isBlockedCompletely || app.isEnabled)) {
+            triggerMindfulIntercept(
+                targetName = app.appName,
+                targetSubtitle = "Strict Mode Protected App Rule",
+                usedMinutes = app.usedTodayMinutes,
+                limitMinutes = app.dailyLimitMinutes,
+                isStrictLocked = true,
+                keepDmsAvailable = false
+            )
+            return
+        }
+        viewModelScope.launch {
+            repository.deleteAppLimit(app.packageName)
+            postBanner(
+                message = "Removed ${app.appName} from your App Blocker list.",
+                title = "Removed ${app.appName}",
+                badgeText = "App Blocker"
+            )
+        }
+    }
 
     fun toggleAppLimitEnabled(app: AppLimitEntity) {
         if (app.isStrictLocked && app.isEnabled) {
-            // Trigger Mindful Intercept when trying to disable a strict-locked app
             triggerMindfulIntercept(
                 targetName = app.appName,
                 targetSubtitle = "Strict Mode App Limit (${app.dailyLimitMinutes}m/day)",
@@ -405,7 +667,13 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         viewModelScope.launch {
-            repository.updateAppLimit(app.copy(isEnabled = !app.isEnabled))
+            val nextEnabled = !app.isEnabled
+            repository.updateAppLimit(
+                app.copy(
+                    isEnabled = nextEnabled,
+                    isBlockedCompletely = if (!nextEnabled) false else app.isBlockedCompletely
+                )
+            )
         }
     }
 
@@ -421,8 +689,10 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.updateAppLimit(app.copy(isStrictLocked = !app.isStrictLocked))
             postBanner(
-                if (!app.isStrictLocked) "Strict Lock enabled for ${app.appName}."
-                else "Strict Lock relaxed for ${app.appName}."
+                message = if (!app.isStrictLocked) "Strict Lock enabled for ${app.appName}."
+                else "Strict Lock relaxed for ${app.appName}.",
+                title = "Strict Mode Updated",
+                badgeText = app.appName
             )
         }
     }
@@ -490,7 +760,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     isEnabled = true
                 )
             )
-            postBanner("Added schedule: ${title.trim()}")
+            postBanner(
+                message = "Added automated block schedule: ${title.trim()}",
+                title = "Schedule Created",
+                badgeText = timeWindow
+            )
         }
     }
 
@@ -500,7 +774,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // --- MINDFUL INTERCEPT & BREATHWORK OVERLAY ---
+    // --- MINDFUL INTERCEPT & BREATHWORK OVERLAY + HEADS-UP POP-UP NOTIFICATION ---
 
     fun triggerMindfulIntercept(
         targetName: String,
@@ -518,6 +792,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             limitMinutes = limitMinutes,
             isStrictLocked = isStrictLocked,
             keepDmsAvailable = keepDmsAvailable
+        )
+        RegainNotificationHelper.sendHeadsUpInterceptNotification(
+            context = appContext,
+            targetName = targetName,
+            reasonSubtitle = targetSubtitle
         )
     }
 
@@ -543,7 +822,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 )
             }
-            postBanner("Mindful victory over $target! Saved ~8m and earned +15 Leaf Coins.")
+            postBanner(
+                message = "Mindful victory over $target! Reclaimed ~8m and earned +15 Leaf Coins.",
+                title = "Exited $target Mindfully",
+                badgeText = "+15 Leaf Coins"
+            )
         }
     }
 
@@ -555,7 +838,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             repository.upsertUserProgress(
                 progress.copy(mindfulBreathsCompleted = progress.mindfulBreathsCompleted + 1)
             )
-            postBanner("Mindful pause complete. Granted a 5-minute intentional window for $target.")
+            postBanner(
+                message = "Mindful pause complete. Granted a 5-minute intentional window for $target.",
+                title = "5m Grace Window Active",
+                badgeText = target
+            )
         }
     }
 
@@ -577,7 +864,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     regaLevel = (newCoins / 120).coerceAtLeast(1)
                 )
             )
-            postBanner("Claimed +${quest.rewardCoins} Leaf Coins from '${quest.title}'!")
+            postBanner(
+                message = "Claimed +${quest.rewardCoins} Leaf Coins from '${quest.title}'!",
+                title = "Quest Reward Claimed",
+                badgeText = "+${quest.rewardCoins} Coins"
+            )
         }
     }
 
@@ -598,7 +889,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         }
         val room = _studyRoomState.value.rooms.find { it.id == roomId }
         if (room != null) {
-            postBanner("Joined '${room.name}' with ${room.activeMembersCount} mindful study companions.")
+            postBanner(
+                message = "Joined '${room.name}' with ${room.activeMembersCount} mindful study companions.",
+                title = "Entered Study Sanctuary",
+                badgeText = room.name
+            )
         }
     }
 
@@ -609,6 +904,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             soundEngine.stop()
             _studyRoomState.update { it.copy(isInRoomFocus = false) }
             val mins = (current.roomSessionSeconds / 60)
+            val exactRoomTime = formatExactDurationSeconds(current.roomSessionSeconds)
             if (mins > 0) {
                 viewModelScope.launch {
                     val progress = uiState.value.userProgress
@@ -622,9 +918,17 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     )
                 }
-                postBanner("Paused study room session (+${mins}m added to focus statistics).")
+                postBanner(
+                    message = "Paused study room session ($exactRoomTime exact focus time recorded).",
+                    title = "Study Room Session Saved",
+                    badgeText = exactRoomTime
+                )
             } else {
-                postBanner("Paused study room timer (${current.roomSessionSeconds}s recorded).")
+                postBanner(
+                    message = "Paused study room timer ($exactRoomTime exact time recorded).",
+                    title = "Study Room Paused",
+                    badgeText = exactRoomTime
+                )
             }
         } else {
             _studyRoomState.update { it.copy(isInRoomFocus = true) }
@@ -645,7 +949,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
 
     fun sendRoomFocusCheer() {
         _studyRoomState.update { it.copy(cheerCount = it.cheerCount + 1) }
-        postBanner("Sent a silent Zen Leaf Cheer to your study room companions!")
+        postBanner(
+            message = "Sent a silent Zen Leaf Cheer to your study room companions!",
+            title = "Zen Leaf Cheer Sent",
+            badgeText = "Study Together"
+        )
     }
 
     // --- 1-PROMPT CAPPED AI PRODUCTIVITY COACH ---
@@ -654,7 +962,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         val state = uiState.value
         val existingToday = state.todayAiInsight
         if (existingToday != null && existingToday.requestsUsedToday >= 1) {
-            postBanner("Daily 1-Prompt Free Quota (1/1) already used today. Showing cached insight.")
+            postBanner(
+                message = "Daily 1-Prompt Free Quota (1/1) already used today. Showing cached insight.",
+                title = "1/1 Daily AI Quota Capped",
+                badgeText = "Free Tier Guard"
+            )
             return
         }
         if (_isGeneratingAi.value) return
@@ -662,7 +974,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _isGeneratingAi.value = true
             try {
-                delay(450L) // Brief calm animation transition
+                delay(450L)
                 val insight = aiCoach.generateDailyCappedInsight(
                     dateKey = state.todayDateKey,
                     apps = state.appLimits,
@@ -672,7 +984,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     preferOnlineGeminiIfKeyPresent = preferOnlineGemini
                 )
                 repository.upsertAiInsight(insight)
-                postBanner("Generated today's personalized AI Coaching Insight (1/1 Daily Quota Used).")
+                postBanner(
+                    message = "Generated today's personalized AI Coaching Insight (1/1 Daily Quota Used).",
+                    title = "AI Coach Insight Ready",
+                    badgeText = "1/1 Quota Used"
+                )
             } finally {
                 _isGeneratingAi.value = false
             }
@@ -684,7 +1000,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         val today = state.todayAiInsight ?: return
         viewModelScope.launch {
             repository.upsertAiInsight(today.copy(requestsUsedToday = 0))
-            postBanner("Reset today's 1-Prompt AI Quota to 0/1 so you can test fresh insights.")
+            postBanner(
+                message = "Reset today's 1-Prompt AI Quota to 0/1 so you can test fresh insights.",
+                title = "AI Quota Reset",
+                badgeText = "0/1 Used"
+            )
         }
     }
 
@@ -722,6 +1042,14 @@ private data class LocalUiBundle(
     val generatingAi: Boolean
 )
 
+private data class OverlayPermsBundle(
+    val banner: String?,
+    val popUp: AnimatedPopUpAlert?,
+    val perms: BlockerPermissionStatus,
+    val showPerms: Boolean,
+    val discoverableApps: List<SelectableDeviceApp>
+)
+
 fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
     VirtualStudyRoom(
         id = "room_kyoto_zen",
@@ -755,7 +1083,7 @@ fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
         ambientRecommendation = AmbientSoundPreset.BINAURAL_40HZ,
         activeMembersCount = 31,
         peers = listOf(
-            VirtualStudyPeer("p8", "Noah C.", "GB", "Kotlin Compose UI", 30, 2, "Shipping v1.0 offline"),
+            VirtualStudyPeer("p8", "Noah C.", "GB", "Kotlin Compose UI", 30, 2, "Shipping v1.1 offline"),
             VirtualStudyPeer("p9", "Chloe L.", "FR", "Editorial Illustration", 20, 1, "Sketching in silence"),
             VirtualStudyPeer("p10", "Mateo G.", "ES", "Novel Draft Ch. 1", 10, 1, "Starting morning flow")
         )

@@ -1,7 +1,12 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -25,18 +30,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -51,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
@@ -80,7 +88,7 @@ fun FocusStudioScreen(
     onToggleSoundPreview: () -> Unit,
     onToggleStartPause: () -> Unit,
     onResetTimer: () -> Unit,
-    onCompleteNowDemo: () -> Unit
+    onSaveExactStudiedTime: () -> Unit
 ) {
     BackHandler(onBack = onBackToHome)
 
@@ -110,7 +118,7 @@ fun FocusStudioScreen(
                             onToggleStrictLock = onToggleStrictLock,
                             onToggleStartPause = onToggleStartPause,
                             onResetTimer = onResetTimer,
-                            onCompleteNowDemo = onCompleteNowDemo
+                            onSaveExactStudiedTime = onSaveExactStudiedTime
                         )
                     }
                     Column(
@@ -137,7 +145,7 @@ fun FocusStudioScreen(
                     onToggleStrictLock = onToggleStrictLock,
                     onToggleStartPause = onToggleStartPause,
                     onResetTimer = onResetTimer,
-                    onCompleteNowDemo = onCompleteNowDemo
+                    onSaveExactStudiedTime = onSaveExactStudiedTime
                 )
             }
             item {
@@ -165,7 +173,7 @@ private fun FocusTimerOrbCard(
     onToggleStrictLock: (Boolean) -> Unit,
     onToggleStartPause: () -> Unit,
     onResetTimer: () -> Unit,
-    onCompleteNowDemo: () -> Unit
+    onSaveExactStudiedTime: () -> Unit
 ) {
     val displaySeconds = if (timerState.mode == FocusTimerMode.STOPWATCH) {
         timerState.elapsedSeconds
@@ -190,7 +198,19 @@ private fun FocusTimerOrbCard(
         label = "timer_progress_arc"
     )
 
+    val infiniteTransition = rememberInfiniteTransition(label = "timer_pulse")
+    val runningPulse by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = if (timerState.isRunning) 1.04f else 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "orb_pulse"
+    )
+
     val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
     val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
 
     Card(
@@ -241,7 +261,7 @@ private fun FocusTimerOrbCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Custom Duration: ${timerState.customCountdownMinutes} minutes",
+                        text = "Target Countdown: ${timerState.customCountdownMinutes} minutes",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -256,13 +276,22 @@ private fun FocusTimerOrbCard(
             }
 
             Box(
-                modifier = Modifier.size(220.dp),
+                modifier = Modifier
+                    .size(228.dp)
+                    .scale(if (timerState.isRunning) runningPulse else 1f),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val strokePx = 14.dp.toPx()
                     val diameter = size.minDimension - strokePx
                     val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+
+                    if (timerState.isRunning) {
+                        drawCircle(
+                            color = secondaryColor.copy(alpha = 0.10f),
+                            radius = (diameter / 2f) * 0.92f
+                        )
+                    }
 
                     drawArc(
                         color = trackColor,
@@ -284,7 +313,10 @@ private fun FocusTimerOrbCard(
                     )
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
                         text = timerState.selectedTag,
                         style = MaterialTheme.typography.labelLarge,
@@ -297,11 +329,30 @@ private fun FocusTimerOrbCard(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.testTag("focus_timer_readout")
                     )
-                    Text(
-                        text = if (timerState.isRunning) "Focusing mindfully..." else "Ready for deep flow",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Studied: ${timerState.exactElapsedFormatted}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.testTag("exact_studied_badge")
+                            )
+                        }
+                    }
                 }
             }
 
@@ -366,7 +417,7 @@ private fun FocusTimerOrbCard(
                 Button(
                     onClick = onToggleStartPause,
                     modifier = Modifier
-                        .weight(1.3f)
+                        .weight(1.4f)
                         .height(52.dp)
                         .testTag("focus_start_pause_button"),
                     shape = RoundedCornerShape(16.dp),
@@ -384,7 +435,7 @@ private fun FocusTimerOrbCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (timerState.isRunning) "Pause Session" else "Start Focus",
+                        text = if (timerState.isRunning) "Pause Timer" else "Start Study",
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -398,16 +449,31 @@ private fun FocusTimerOrbCard(
                 ) {
                     Icon(imageVector = Icons.Default.Refresh, contentDescription = "Reset Timer")
                 }
+            }
 
-                OutlinedButton(
-                    onClick = onCompleteNowDemo,
-                    modifier = Modifier
-                        .height(52.dp)
-                        .testTag("focus_complete_demo_button"),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.FastForward, contentDescription = "Complete Session Now")
-                }
+            FilledTonalButton(
+                onClick = onSaveExactStudiedTime,
+                enabled = timerState.elapsedSeconds > 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("focus_complete_demo_button"),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Save,
+                    contentDescription = "Save Exact Time Studied",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (timerState.elapsedSeconds > 0) {
+                        "Save Exact Time Studied (${timerState.exactElapsedFormatted})"
+                    } else {
+                        "Start Timer to Record Exact Time Studied (0s)"
+                    },
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }
@@ -555,7 +621,7 @@ private fun RecentFocusHistoryCard(sessions: List<FocusSessionEntity>) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Completed Focus Sessions",
+                text = "Recorded Study Sessions (Exact Time)",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -571,19 +637,19 @@ private fun RecentFocusHistoryCard(sessions: List<FocusSessionEntity>) {
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "No focus sessions recorded yet today",
+                            text = "No study sessions recorded yet today (0m 0s)",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Start the timer above to log your deep focus time and nurture Rega with Leaf Coins.",
+                            text = "Start the timer above and tap 'Save Exact Time Studied' to log the exact minutes and seconds you studied.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             } else {
-                sessions.take(5).forEach { session ->
+                sessions.take(8).forEach { session ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -619,9 +685,10 @@ private fun RecentFocusHistoryCard(sessions: List<FocusSessionEntity>) {
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "${session.durationMinutes}m · ${session.ambientSound}",
+                                    text = "Exact studied: ${session.exactDurationFormatted} · ${session.ambientSound}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }

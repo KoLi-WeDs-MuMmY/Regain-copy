@@ -4,9 +4,14 @@ import android.content.Context
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.example.ai.SinglePromptAiCoach
+import com.example.data.FocusSessionEntity
 import com.example.data.UserProgressEntity
+import com.example.ui.ActiveTimerUiState
+import com.example.ui.FocusTimerMode
+import com.example.ui.RegainUiState
 import com.example.ui.WindowWidthSizeClass
 import com.example.ui.computeAdaptiveLayoutInfo
+import com.example.ui.formatExactDurationSeconds
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,5 +61,36 @@ class ExampleRobolectricTest {
         assertEquals(1, insight.requestsUsedToday)
         assertEquals("OFFLINE_ZEN_ENGINE", insight.sourceMode)
         assertTrue(insight.coachHeadline.isNotBlank())
+    }
+
+    @Test
+    fun `study timer records exact seconds studied instead of preset target duration`() {
+        assertEquals("0s", formatExactDurationSeconds(0))
+        assertEquals("47s", formatExactDurationSeconds(47))
+        assertEquals("2m 15s", formatExactDurationSeconds(135))
+
+        // Even when a 50-minute preset was selected, saving after 95 seconds records 1m 35s
+        val recordedSession = FocusSessionEntity(
+            title = "Deep Study (Deep 50/10)",
+            tag = "Deep Study",
+            mode = FocusTimerMode.POMODORO_50.name,
+            durationMinutes = 1,
+            durationSeconds = 95,
+            ambientSound = "Kyoto Temple Rain",
+            coinsEarned = 1
+        )
+        assertEquals("1m 35s", recordedSession.exactDurationFormatted)
+
+        val uiState = RegainUiState(
+            focusSessions = listOf(recordedSession),
+            timerState = ActiveTimerUiState(
+                mode = FocusTimerMode.POMODORO_25,
+                totalTargetSeconds = 25 * 60,
+                elapsedSeconds = 25,
+                isRunning = true
+            )
+        )
+        assertEquals(120, uiState.totalFocusedSecondsToday)
+        assertEquals("2m 0s", uiState.exactTotalFocusedFormatted)
     }
 }
