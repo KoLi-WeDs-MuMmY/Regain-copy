@@ -117,8 +117,19 @@ class MainActivity : ComponentActivity() {
     private var pendingInterceptSubtitle by mutableStateOf<String?>(null)
     private var pendingReturnedFromOverlayTarget by mutableStateOf<String?>(null)
 
+    override fun onResume() {
+        super.onResume()
+        isAppInForeground = true
+    }
+
+    override fun onPause() {
+        isAppInForeground = false
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isAppInForeground = true
         extractInterceptExtras(intent)
         enableEdgeToEdge()
         setContent {
@@ -147,7 +158,10 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
+                            isAppInForeground = true
                             regainViewModel.refreshPermissionsStatus()
+                        } else if (event == Lifecycle.Event.ON_PAUSE) {
+                            isAppInForeground = false
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -192,6 +206,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestAccessibilityPermission = {
                         RegainPermissionsManager.openAccessibilitySettings(context)
+                    },
+                    onRequestBatteryPermission = {
+                        RegainPermissionsManager.requestIgnoreBatteryOptimizations(context)
                     }
                 )
             }
@@ -220,6 +237,11 @@ class MainActivity : ComponentActivity() {
             intent.removeExtra(RegainNotificationHelper.EXTRA_INTERCEPT_SUBTITLE)
         }
     }
+
+    companion object {
+        @Volatile
+        var isAppInForeground: Boolean = false
+    }
 }
 
 @Composable
@@ -229,7 +251,8 @@ fun RegainZenAdaptiveApp(
     onRequestNotificationPermission: () -> Unit = {},
     onRequestOverlayPermission: () -> Unit = {},
     onRequestUsagePermission: () -> Unit = {},
-    onRequestAccessibilityPermission: () -> Unit = {}
+    onRequestAccessibilityPermission: () -> Unit = {},
+    onRequestBatteryPermission: () -> Unit = {}
 ) {
     if (uiState.showPermissionsDialog) {
         AlertDialog(
@@ -246,7 +269,8 @@ fun RegainZenAdaptiveApp(
                     onRequestNotificationPermission = onRequestNotificationPermission,
                     onRequestOverlayPermission = onRequestOverlayPermission,
                     onRequestUsagePermission = onRequestUsagePermission,
-                    onRequestAccessibilityPermission = onRequestAccessibilityPermission
+                    onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+                    onRequestBatteryPermission = onRequestBatteryPermission
                 )
             },
             confirmButton = {
@@ -308,7 +332,8 @@ fun RegainZenAdaptiveApp(
                             onRequestNotificationPermission = onRequestNotificationPermission,
                             onRequestOverlayPermission = onRequestOverlayPermission,
                             onRequestUsagePermission = onRequestUsagePermission,
-                            onRequestAccessibilityPermission = onRequestAccessibilityPermission
+                            onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+                            onRequestBatteryPermission = onRequestBatteryPermission
                         )
                     }
                 }
@@ -346,7 +371,8 @@ fun RegainZenAdaptiveApp(
                             onRequestNotificationPermission = onRequestNotificationPermission,
                             onRequestOverlayPermission = onRequestOverlayPermission,
                             onRequestUsagePermission = onRequestUsagePermission,
-                            onRequestAccessibilityPermission = onRequestAccessibilityPermission
+                            onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+                            onRequestBatteryPermission = onRequestBatteryPermission
                         )
                     }
                 }
@@ -371,7 +397,8 @@ private fun RegainScreenContent(
     onRequestNotificationPermission: () -> Unit,
     onRequestOverlayPermission: () -> Unit,
     onRequestUsagePermission: () -> Unit,
-    onRequestAccessibilityPermission: () -> Unit
+    onRequestAccessibilityPermission: () -> Unit,
+    onRequestBatteryPermission: () -> Unit
 ) {
     when (uiState.currentTab) {
         RegainTab.SANCTUARY -> SanctuaryHomeScreen(
@@ -430,6 +457,7 @@ private fun RegainScreenContent(
             onRequestOverlayPermission = onRequestOverlayPermission,
             onRequestUsagePermission = onRequestUsagePermission,
             onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+            onRequestBatteryPermission = onRequestBatteryPermission,
             onAddOrBlockApp = viewModel::addOrBlockSelectedApp,
             onToggleBlockAppCompletely = viewModel::toggleBlockAppCompletely,
             onRemoveAppFromBlocker = viewModel::removeAppFromBlocker,

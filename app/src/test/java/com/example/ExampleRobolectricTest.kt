@@ -125,6 +125,28 @@ class ExampleRobolectricTest {
         assertNotNull(rule)
         assertEquals("TikTok", rule?.appName)
 
+        // Verify YouTube with Strict Mode enabled (even if usedTodayMinutes is 0) matches immediately
+        db.insertAppLimits(
+            listOf(
+                AppLimitEntity(
+                    packageName = "com.google.android.youtube",
+                    appName = "YouTube",
+                    category = "Video & Shorts",
+                    iconKey = "youtube",
+                    dailyLimitMinutes = 45,
+                    usedTodayMinutes = 0,
+                    pickupsToday = 0,
+                    blockedCountToday = 0,
+                    isStrictLocked = true,
+                    isEnabled = true,
+                    isBlockedCompletely = false
+                )
+            )
+        )
+        val youtubeStrictRule = db.getBlockingRuleForPackageSync("com.google.android.youtube")
+        assertNotNull(youtubeStrictRule)
+        assertTrue(youtubeStrictRule?.isStrictLocked == true)
+
         assertFalse(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))
         RegainOverlayWindowManager.grantFiveMinuteGrace("com.zhiliaoapp.musically")
         assertTrue(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))

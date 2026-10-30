@@ -225,7 +225,7 @@ private fun HomePermissionPromptBanner(
                         text = if (perms.allGranted) {
                             "App Blocker & Screen Pop-Up Shield Active (${uiState.activelyBlockedAppsCount} Apps Blocked)"
                         } else {
-                            "Enable App Blocker & Screen Pop-Up Permissions (${perms.grantedCount}/4)"
+                            "Enable App Blocker & Screen Pop-Up Permissions (${perms.grantedCount}/${perms.totalCount})"
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
@@ -233,9 +233,9 @@ private fun HomePermissionPromptBanner(
                     )
                     Text(
                         text = if (perms.allGranted) {
-                            "All permissions granted to block chosen apps and display breathing pop-ups over Reels & Shorts."
+                            "All 5 permissions granted to block chosen apps in the background and display breathing pop-ups over YouTube, Reels & Shorts."
                         } else {
-                            "Grant permission to control, block apps, and display pop-up animations to pull you out of Shorts & Reels."
+                            "Grant permissions (including Unrestricted Background) to block apps and display pop-ups in real time over YouTube, Shorts & Reels."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

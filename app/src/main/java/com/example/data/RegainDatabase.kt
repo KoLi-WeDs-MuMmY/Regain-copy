@@ -283,10 +283,15 @@ class RegainDatabase private constructor(context: Context) :
     }
 
     fun getBlockingRuleForPackageSync(packageName: String): AppLimitEntity? {
-        return appLimitsFlow.value.firstOrNull { app ->
+        val currentApps = appLimitsFlow.value.ifEmpty {
+            val fresh = queryAppLimits(writableDatabase)
+            appLimitsFlow.value = fresh
+            fresh
+        }
+        return currentApps.firstOrNull { app ->
             app.packageName == packageName &&
                 app.isEnabled &&
-                (app.isBlockedCompletely || app.usedTodayMinutes >= app.dailyLimitMinutes)
+                (app.isBlockedCompletely || app.isStrictLocked || app.usedTodayMinutes >= app.dailyLimitMinutes)
         }
     }
 
@@ -299,7 +304,44 @@ class RegainDatabase private constructor(context: Context) :
             "com.reddit.frontpage", "com.twitter.android" -> "reddit_popular"
             else -> null
         } ?: return null
-        return shieldsFlow.value.firstOrNull { it.id == shieldId && it.isEnabled }
+        val currentShields = shieldsFlow.value.ifEmpty {
+            val fresh = queryShields(writableDatabase)
+            shieldsFlow.value = fresh
+            fresh
+        }
+        return currentShields.firstOrNull { it.id == shieldId && it.isEnabled }
+    }
+
+    fun syncUsageStatsFromServiceSync(context: Context) {
+        try {
+            val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager ?: return
+            val cal = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+            }
+            val stats = usm.queryUsageStats(
+                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                cal.timeInMillis,
+                System.currentTimeMillis()
+            ) ?: return
+            val db = writableDatabase
+            val currentList = appLimitsFlow.value.ifEmpty { queryAppLimits(db) }
+            var changed = false
+            stats.forEach { stat ->
+                val match = currentList.find { it.packageName == stat.packageName }
+                val minutes = (stat.totalTimeInForeground / 60000L).toInt()
+                if (match != null && minutes >= 0 && match.usedTodayMinutes != minutes) {
+                    val updated = match.copy(usedTodayMinutes = minutes)
+                    db.insertWithOnConflict("app_limits", null, updated.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+                    changed = true
+                }
+            }
+            if (changed) {
+                appLimitsFlow.value = queryAppLimits(db)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     fun incrementBlockCountSync(packageName: String) {

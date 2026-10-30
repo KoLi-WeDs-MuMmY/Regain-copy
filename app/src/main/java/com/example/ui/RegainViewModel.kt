@@ -150,7 +150,7 @@ data class RegainUiState(
         get() = shortFormShields.sumOf { it.interceptsToday } + appLimits.sumOf { it.blockedCountToday }
 
     val activelyBlockedAppsCount: Int
-        get() = appLimits.count { it.isEnabled && it.isBlockedCompletely }
+        get() = appLimits.count { it.isEnabled && (it.isBlockedCompletely || it.isStrictLocked) }
 
     val totalFocusedSecondsToday: Int
         get() = focusSessions.sumOf {
@@ -565,6 +565,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             )
             return
         }
+        RegainOverlayWindowManager.clearGraceWindow(app.packageName)
         viewModelScope.launch {
             val updated = app.copy(
                 isBlockedCompletely = nextBlocked,
@@ -584,7 +585,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             )
             postBanner(
                 message = if (nextBlocked) {
-                    "${app.appName} is now BLOCKED! Opening ${app.appName} will trigger an animated pop-up shield."
+                    "${app.appName} is now BLOCKED! Opening ${app.appName} will trigger an animated pop-up shield immediately (0s delay)."
                 } else {
                     "Immediate block lifted for ${app.appName}. Daily limit (${app.dailyLimitMinutes}m) remains active."
                 },
@@ -606,6 +607,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             "com.custom.blocked." + cleanName.lowercase(Locale.US).replace(Regex("[^a-z0-9]"), "")
         }
         val iconKey = cleanName.lowercase(Locale.US).replace(Regex("[^a-z0-9]"), "").take(14).ifBlank { "app" }
+        RegainOverlayWindowManager.clearGraceWindow(pkg)
 
         viewModelScope.launch {
             val existing = uiState.value.appLimits.find { it.packageName == pkg }
@@ -634,12 +636,12 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             RegainNotificationHelper.sendAppBlockerUpdatedNotification(
                 context = appContext,
                 appName = cleanName,
-                isBlocked = blockImmediately
+                isBlocked = blockImmediately || strictMode
             )
 
             postBanner(
-                message = if (blockImmediately) {
-                    "Added & blocked $cleanName! Regain Zen will intercept it with a pop-up animation."
+                message = if (blockImmediately || strictMode) {
+                    "Added & blocked $cleanName! Regain Zen will intercept it immediately (0s delay) with a pop-up animation."
                 } else {
                     "Added $cleanName with a ${entity.dailyLimitMinutes}m daily limit."
                 },
@@ -661,6 +663,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             )
             return
         }
+        RegainOverlayWindowManager.clearGraceWindow(app.packageName)
         viewModelScope.launch {
             repository.deleteAppLimit(app.packageName)
             postBanner(
@@ -683,6 +686,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             )
             return
         }
+        RegainOverlayWindowManager.clearGraceWindow(app.packageName)
         viewModelScope.launch {
             val nextEnabled = !app.isEnabled
             repository.updateAppLimit(
@@ -703,11 +707,21 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun toggleAppStrictLock(app: AppLimitEntity) {
+        val nextStrict = !app.isStrictLocked
+        RegainOverlayWindowManager.clearGraceWindow(app.packageName)
         viewModelScope.launch {
-            repository.updateAppLimit(app.copy(isStrictLocked = !app.isStrictLocked))
+            repository.updateAppLimit(
+                app.copy(
+                    isStrictLocked = nextStrict,
+                    isEnabled = if (nextStrict) true else app.isEnabled
+                )
+            )
             postBanner(
-                message = if (!app.isStrictLocked) "Strict Lock enabled for ${app.appName}."
-                else "Strict Lock relaxed for ${app.appName}.",
+                message = if (nextStrict) {
+                    "Strict Mode enabled for ${app.appName}. Opening ${app.appName} will immediately trigger the Strict Pop-Up Shield (0s delay)."
+                } else {
+                    "Strict Lock relaxed for ${app.appName}."
+                },
                 title = "Strict Mode Updated",
                 badgeText = app.appName
             )

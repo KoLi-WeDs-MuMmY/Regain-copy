@@ -134,7 +134,7 @@ class RegainRepository(
                         usedTodayMinutes = 0,
                         pickupsToday = 0,
                         blockedCountToday = 0,
-                        isStrictLocked = true,
+                        isStrictLocked = false,
                         isEnabled = true,
                         isBlockedCompletely = false
                     ),

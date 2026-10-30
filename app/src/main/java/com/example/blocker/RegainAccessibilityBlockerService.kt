@@ -9,9 +9,10 @@ import com.example.data.RegainDatabase
 import com.example.notifications.RegainNotificationHelper
 
 /**
- * Real Android AccessibilityService that monitors foreground app switches and short-form video feeds.
- * When the user opens a blocked app or navigates into Reels/Shorts, it displays Regain Zen's
- * centered WindowManager Floating Pop-Up Card Window and fires a heads-up notification.
+ * Real Android AccessibilityService that monitors foreground app switches and short-form video feeds
+ * with 0ms latency. When the user opens a blocked app (e.g., YouTube in Strict Mode) or navigates into
+ * Reels/Shorts, it immediately displays Regain Zen's centered WindowManager Floating Pop-Up Card Window,
+ * vibrates, and fires a heads-up notification.
  */
 class RegainAccessibilityBlockerService : AccessibilityService() {
 
@@ -20,20 +21,51 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         RegainBlockerMonitorService.ensureServiceRunning(applicationContext)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
-        val pkg = event.packageName?.toString() ?: return
+    override fun onUnbind(intent: Intent?): Boolean {
+        if (instance === this) {
+            instance = null
+        }
+        return super.onUnbind(intent)
+    }
 
-        // Ignore our own package and system UI/settings/launchers
-        if (pkg == packageName ||
-            pkg.startsWith("com.android.systemui") ||
+    override fun onDestroy() {
+        if (instance === this) {
+            instance = null
+        }
+        super.onDestroy()
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val pkg = event?.packageName?.toString()
+            ?: try { rootInActiveWindow?.packageName?.toString() } catch (_: Exception) { null }
+            ?: return
+
+        if (pkg == packageName) {
+            latestForegroundPackage = pkg
+            latestForegroundTimestamp = System.currentTimeMillis()
+            return
+        }
+
+        // Ignore system UI, keyboards, permission controllers, or home launchers
+        if (pkg.startsWith("com.android.systemui") ||
             pkg.startsWith("com.android.settings") ||
+            pkg.contains("inputmethod") ||
+            pkg.contains("keyboard") ||
             pkg.contains("launcher") ||
             pkg.contains("permissioncontroller")
         ) {
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        latestForegroundPackage = pkg
+        latestForegroundTimestamp = now
+
+        if (MainActivity.isAppInForeground) {
             return
         }
 
@@ -41,9 +73,8 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
             return
         }
 
-        val now = System.currentTimeMillis()
         if (pkg == lastInterceptedPackage &&
-            (RegainOverlayWindowManager.isOverlayCurrentlyShowing() || (now - lastInterceptTimestamp) < 6_000L)
+            (RegainOverlayWindowManager.isOverlayCurrentlyShowing() || (now - lastInterceptTimestamp) < 3_500L)
         ) {
             return
         }
@@ -55,10 +86,15 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
             lastInterceptTimestamp = now
             db.incrementBlockCountSync(pkg)
 
-            val subtitle = if (matchingRule.isBlockedCompletely) {
-                "App Blocker Active — Chosen to block completely"
-            } else {
-                "Daily Limit Reached (${matchingRule.usedTodayMinutes}m / ${matchingRule.dailyLimitMinutes}m)"
+            val subtitle = when {
+                matchingRule.isBlockedCompletely && matchingRule.isStrictLocked ->
+                    "Strict Mode + App Blocker Active — Blocked Immediately"
+                matchingRule.isBlockedCompletely ->
+                    "App Blocker Active — Chosen to block completely"
+                matchingRule.isStrictLocked ->
+                    "Strict Mode Active — Mindful pause required"
+                else ->
+                    "Daily Limit Reached (${matchingRule.usedTodayMinutes}m / ${matchingRule.dailyLimitMinutes}m)"
             }
 
             RegainNotificationHelper.sendHeadsUpInterceptNotification(
@@ -75,10 +111,21 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
                 usedMinutes = matchingRule.usedTodayMinutes,
                 limitMinutes = matchingRule.dailyLimitMinutes,
                 isStrictLocked = matchingRule.isStrictLocked,
-                keepDmsAvailable = false
+                keepDmsAvailable = false,
+                onOverlayFailedFallback = {
+                    try {
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                    } catch (_: Exception) {
+                    }
+                    launchFallbackSanctuaryActivity(matchingRule.appName, subtitle)
+                }
             )
 
             if (!shownOverlay) {
+                try {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                } catch (_: Exception) {
+                }
                 launchFallbackSanctuaryActivity(matchingRule.appName, subtitle)
             }
             return
@@ -108,10 +155,21 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
                     usedMinutes = shield.usedMinutesToday,
                     limitMinutes = shield.dailyCapMinutes.coerceAtLeast(15),
                     isStrictLocked = false,
-                    keepDmsAvailable = shield.allowDirectMessages
+                    keepDmsAvailable = shield.allowDirectMessages,
+                    onOverlayFailedFallback = {
+                        try {
+                            performGlobalAction(GLOBAL_ACTION_HOME)
+                        } catch (_: Exception) {
+                        }
+                        launchFallbackSanctuaryActivity("${shield.platformName} (${shield.feedName})", subtitle)
+                    }
                 )
 
                 if (!shownOverlay) {
+                    try {
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                    } catch (_: Exception) {
+                    }
                     launchFallbackSanctuaryActivity("${shield.platformName} (${shield.feedName})", subtitle)
                 }
             }
@@ -122,12 +180,12 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
         if (pkg == "com.zhiliaoapp.musically" || pkg == "com.ss.android.ugc.trill") {
             return true
         }
-        val root: AccessibilityNodeInfo = rootInActiveWindow ?: return false
+        val root: AccessibilityNodeInfo = try { rootInActiveWindow } catch (_: Exception) { null } ?: return false
         return try {
             val reelsNodes = root.findAccessibilityNodeInfosByText("Reels")
             val shortsNodes = root.findAccessibilityNodeInfosByText("Shorts")
             val spotlightNodes = root.findAccessibilityNodeInfosByText("Spotlight")
-            (reelsNodes != null && reelsNodes.any { it.isSelected }) ||
+            (reelsNodes != null && reelsNodes.any { it.isSelected || it.isVisibleToUser }) ||
                 (shortsNodes != null && shortsNodes.any { it.isSelected }) ||
                 (spotlightNodes != null && spotlightNodes.any { it.isSelected })
         } catch (_: Exception) {
@@ -153,5 +211,25 @@ class RegainAccessibilityBlockerService : AccessibilityService() {
 
     override fun onInterrupt() {
         // No-op
+    }
+
+    companion object {
+        @Volatile
+        private var instance: RegainAccessibilityBlockerService? = null
+
+        @Volatile
+        var latestForegroundPackage: String? = null
+
+        @Volatile
+        var latestForegroundTimestamp: Long = 0L
+
+        fun isConnectedInstanceAlive(): Boolean = instance != null
+
+        fun performHomeActionIfAvailable() {
+            try {
+                instance?.performGlobalAction(GLOBAL_ACTION_HOME)
+            } catch (_: Exception) {
+            }
+        }
     }
 }

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import com.example.notifications.RegainNotificationHelper
@@ -14,18 +15,22 @@ data class BlockerPermissionStatus(
     val hasNotificationsPermission: Boolean = false,
     val hasOverlayPopUpPermission: Boolean = false,
     val hasUsageStatsPermission: Boolean = false,
-    val hasAccessibilityBlockerEnabled: Boolean = false
+    val hasAccessibilityBlockerEnabled: Boolean = false,
+    val hasUnrestrictedBatteryPermission: Boolean = false
 ) {
+    val totalCount: Int = 5
+
     val grantedCount: Int
         get() = listOf(
             hasNotificationsPermission,
             hasOverlayPopUpPermission,
             hasUsageStatsPermission,
-            hasAccessibilityBlockerEnabled
+            hasAccessibilityBlockerEnabled,
+            hasUnrestrictedBatteryPermission
         ).count { it }
 
     val allGranted: Boolean
-        get() = grantedCount == 4
+        get() = grantedCount == totalCount
 }
 
 object RegainPermissionsManager {
@@ -35,7 +40,8 @@ object RegainPermissionsManager {
             hasNotificationsPermission = RegainNotificationHelper.hasNotificationPermission(context),
             hasOverlayPopUpPermission = hasOverlayPermission(context),
             hasUsageStatsPermission = hasUsageStatsPermission(context),
-            hasAccessibilityBlockerEnabled = isAccessibilityBlockerEnabled(context)
+            hasAccessibilityBlockerEnabled = isAccessibilityBlockerEnabled(context),
+            hasUnrestrictedBatteryPermission = isIgnoringBatteryOptimizations(context)
         )
     }
 
@@ -63,6 +69,9 @@ object RegainPermissionsManager {
 
     fun isAccessibilityBlockerEnabled(context: Context): Boolean {
         return try {
+            if (RegainAccessibilityBlockerService.isConnectedInstanceAlive()) {
+                return true
+            }
             val expectedComponent = ComponentName(context, RegainAccessibilityBlockerService::class.java)
             val enabledServices = Settings.Secure.getString(
                 context.contentResolver,
@@ -74,6 +83,44 @@ object RegainPermissionsManager {
         } catch (_: Exception) {
             false
         }
+    }
+
+    fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+            } catch (_: Exception) {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    fun requestIgnoreBatteryOptimizations(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val directIntent = Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:${context.packageName}")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(directIntent)
+                return
+            } catch (_: Exception) {
+            }
+            try {
+                val listIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(listIntent)
+                return
+            } catch (_: Exception) {
+            }
+        }
+        openAppDetailsSettings(context)
     }
 
     fun openOverlayPermissionSettings(context: Context) {

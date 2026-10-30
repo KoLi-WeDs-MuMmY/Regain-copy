@@ -88,6 +88,7 @@ fun ShieldLimitsScreen(
     onRequestOverlayPermission: () -> Unit,
     onRequestUsagePermission: () -> Unit,
     onRequestAccessibilityPermission: () -> Unit,
+    onRequestBatteryPermission: () -> Unit = {},
     onAddOrBlockApp: (SelectableDeviceApp, Boolean, Int, Boolean) -> Unit,
     onToggleBlockAppCompletely: (AppLimitEntity) -> Unit,
     onRemoveAppFromBlocker: (AppLimitEntity) -> Unit,
@@ -146,7 +147,8 @@ fun ShieldLimitsScreen(
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onRequestOverlayPermission = onRequestOverlayPermission,
                 onRequestUsagePermission = onRequestUsagePermission,
-                onRequestAccessibilityPermission = onRequestAccessibilityPermission
+                onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+                onRequestBatteryPermission = onRequestBatteryPermission
             )
         }
 
@@ -232,7 +234,8 @@ fun PermissionsAndOverlayControlCard(
     onRequestNotificationPermission: () -> Unit,
     onRequestOverlayPermission: () -> Unit,
     onRequestUsagePermission: () -> Unit,
-    onRequestAccessibilityPermission: () -> Unit
+    onRequestAccessibilityPermission: () -> Unit,
+    onRequestBatteryPermission: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -280,7 +283,7 @@ fun PermissionsAndOverlayControlCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Grant permissions so Regain Zen can block apps and display pop-ups & animations over Reels/Shorts",
+                            text = "Grant all 5 permissions so Regain Zen can block apps and display pop-ups in real time while YouTube, Instagram, or TikTok is open",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -295,7 +298,7 @@ fun PermissionsAndOverlayControlCard(
                     }
                 ) {
                     Text(
-                        text = "${permissionStatus.grantedCount}/4 Active",
+                        text = "${permissionStatus.grantedCount}/${permissionStatus.totalCount} Active",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (permissionStatus.allGranted) {
@@ -320,7 +323,7 @@ fun PermissionsAndOverlayControlCard(
             PermissionControlRow(
                 icon = Icons.Default.Layers,
                 title = "2. Display Pop-Ups Over Other Apps",
-                subtitle = "Displays animated breathing pop-ups on your screen to pull you out of blocked apps",
+                subtitle = "Displays animated breathing pop-ups directly over YouTube, Instagram & Shorts",
                 isGranted = permissionStatus.hasOverlayPopUpPermission,
                 buttonTag = "perm_btn_overlay",
                 onGrantClick = onRequestOverlayPermission
@@ -329,7 +332,7 @@ fun PermissionsAndOverlayControlCard(
             PermissionControlRow(
                 icon = Icons.Default.Security,
                 title = "3. Accessibility App & Shorts Blocker",
-                subtitle = "Detects when you open a blocked app, Reel, or Short and intercepts it immediately",
+                subtitle = "Detects when you open a blocked app, Reel, or Short with 0ms delay and intercepts it",
                 isGranted = permissionStatus.hasAccessibilityBlockerEnabled,
                 buttonTag = "perm_btn_accessibility",
                 onGrantClick = onRequestAccessibilityPermission
@@ -338,10 +341,19 @@ fun PermissionsAndOverlayControlCard(
             PermissionControlRow(
                 icon = Icons.Default.QueryStats,
                 title = "4. Screen Time & Usage Access",
-                subtitle = "Calculates accurate daily screen time and app pickups over time",
+                subtitle = "Detects foreground app launches in the background and tracks daily screen time",
                 isGranted = permissionStatus.hasUsageStatsPermission,
                 buttonTag = "perm_btn_usage",
                 onGrantClick = onRequestUsagePermission
+            )
+
+            PermissionControlRow(
+                icon = Icons.Default.Schedule,
+                title = "5. Unrestricted Background / Battery Exemption",
+                subtitle = "Prevents phone battery savers from freezing the blocker while YouTube or other apps are open",
+                isGranted = permissionStatus.hasUnrestrictedBatteryPermission,
+                buttonTag = "perm_btn_battery",
+                onGrantClick = onRequestBatteryPermission
             )
         }
     }
@@ -463,7 +475,7 @@ private fun AppLimitsAndStrictSection(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Choose any app to block completely or enforce a daily time cap with pop-up animations",
+                        text = "Choose any app to block completely or enable Strict Mode for instant pop-up interception",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -485,13 +497,14 @@ private fun AppLimitsAndStrictSection(
             }
 
             appLimits.forEach { app ->
+                val isActivelyBlockedNow = app.isEnabled && (app.isBlockedCompletely || app.isStrictLocked)
                 val ratio = (app.usedTodayMinutes.toFloat() / app.dailyLimitMinutes.coerceAtLeast(1)).coerceIn(0f, 1f)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
                         .background(
-                            if (app.isBlockedCompletely && app.isEnabled) {
+                            if (isActivelyBlockedNow) {
                                 MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
@@ -516,13 +529,13 @@ private fun AppLimitsAndStrictSection(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Bold
                                 )
-                                if (app.isBlockedCompletely && app.isEnabled) {
+                                if (isActivelyBlockedNow) {
                                     Surface(
                                         shape = RoundedCornerShape(50),
                                         color = MaterialTheme.colorScheme.tertiary
                                     ) {
                                         Text(
-                                            text = "BLOCKED",
+                                            text = if (app.isStrictLocked) "STRICT BLOCKED" else "BLOCKED",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onTertiary,
                                             fontWeight = FontWeight.Bold,
@@ -544,10 +557,13 @@ private fun AppLimitsAndStrictSection(
                                 }
                             }
                             Text(
-                                text = if (app.isBlockedCompletely && app.isEnabled) {
-                                    "Blocked completely · ${app.blockedCountToday} intercepts today"
-                                } else {
-                                    "Used ${app.usedTodayMinutes}m of ${app.dailyLimitMinutes}m cap · ${app.pickupsToday} pickups"
+                                text = when {
+                                    app.isBlockedCompletely && app.isEnabled ->
+                                        "Blocked completely · ${app.blockedCountToday} intercepts today"
+                                    app.isStrictLocked && app.isEnabled ->
+                                        "Strict Mode Active (Blocks immediately on open) · ${app.blockedCountToday} intercepts today"
+                                    else ->
+                                        "Used ${app.usedTodayMinutes}m of ${app.dailyLimitMinutes}m cap · ${app.pickupsToday} pickups"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -561,12 +577,12 @@ private fun AppLimitsAndStrictSection(
                     }
 
                     LinearProgressIndicator(
-                        progress = { if (app.isBlockedCompletely && app.isEnabled) 1f else ratio },
+                        progress = { if (isActivelyBlockedNow) 1f else ratio },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(50)),
-                        color = if (app.isBlockedCompletely || ratio >= 0.9f) {
+                        color = if (isActivelyBlockedNow || ratio >= 0.9f) {
                             MaterialTheme.colorScheme.tertiary
                         } else {
                             MaterialTheme.colorScheme.primary
