@@ -1,21 +1,17 @@
 package com.example.data
 
+import android.content.ContentValues
 import android.content.Context
-import androidx.room.Dao
-import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.PrimaryKey
-import androidx.room.Query
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.Update
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
-@Entity(tableName = "app_limits")
 data class AppLimitEntity(
-    @PrimaryKey val packageName: String,
+    val packageName: String,
     val appName: String,
     val category: String,
     val iconKey: String,
@@ -27,9 +23,8 @@ data class AppLimitEntity(
     val isEnabled: Boolean
 )
 
-@Entity(tableName = "short_form_shields")
 data class ShortFormShieldEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val platformName: String,
     val feedName: String,
     val shieldMode: String, // "BLOCK_COMPLETELY", "DAILY_CAP_15M", "MINDFUL_BREATH_PAUSE"
@@ -40,9 +35,8 @@ data class ShortFormShieldEntity(
     val allowDirectMessages: Boolean
 )
 
-@Entity(tableName = "focus_sessions")
 data class FocusSessionEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val id: Long = 0,
     val title: String,
     val tag: String,
     val mode: String, // "POMODORO", "COUNTDOWN", "STOPWATCH"
@@ -52,9 +46,8 @@ data class FocusSessionEntity(
     val completedAtTimestamp: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "schedule_blocks")
 data class ScheduleBlockEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val id: Long = 0,
     val title: String,
     val timeWindowLabel: String,
     val daysSummary: String,
@@ -63,9 +56,8 @@ data class ScheduleBlockEntity(
     val isEnabled: Boolean
 )
 
-@Entity(tableName = "daily_quests")
 data class DailyQuestEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val title: String,
     val subtitle: String,
     val rewardCoins: Int,
@@ -75,9 +67,8 @@ data class DailyQuestEntity(
     val isClaimed: Boolean
 )
 
-@Entity(tableName = "user_progress")
 data class UserProgressEntity(
-    @PrimaryKey val id: Int = 1,
+    val id: Int = 1,
     val regaLevel: Int = 3,
     val regaStageName: String = "Sprouting Sage Spirit",
     val leafCoins: Int = 340,
@@ -89,9 +80,8 @@ data class UserProgressEntity(
     val strictPassphrase: String = "I choose mindful presence"
 )
 
-@Entity(tableName = "ai_coach_insights")
 data class AiCoachInsightEntity(
-    @PrimaryKey val dateKey: String, // YYYY-MM-DD
+    val dateKey: String, // YYYY-MM-DD
     val requestsUsedToday: Int, // Strictly capped at 1 per day
     val coachHeadline: String,
     val habitBottleneck: String,
@@ -104,90 +94,470 @@ data class AiCoachInsightEntity(
     val generatedAtTimestamp: Long = System.currentTimeMillis()
 )
 
-@Dao
 interface RegainDao {
-    @Query("SELECT * FROM app_limits ORDER BY usedTodayMinutes DESC")
     fun getAllAppLimits(): Flow<List<AppLimitEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAppLimits(items: List<AppLimitEntity>)
-
-    @Update
     suspend fun updateAppLimit(item: AppLimitEntity)
 
-    @Query("SELECT * FROM short_form_shields ORDER BY interceptsToday DESC")
     fun getAllShortFormShields(): Flow<List<ShortFormShieldEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertShortFormShields(items: List<ShortFormShieldEntity>)
-
-    @Update
     suspend fun updateShortFormShield(item: ShortFormShieldEntity)
 
-    @Query("SELECT * FROM focus_sessions ORDER BY completedAtTimestamp DESC")
     fun getAllFocusSessions(): Flow<List<FocusSessionEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFocusSession(item: FocusSessionEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFocusSessions(items: List<FocusSessionEntity>)
 
-    @Query("SELECT * FROM schedule_blocks ORDER BY id ASC")
     fun getAllSchedules(): Flow<List<ScheduleBlockEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedules(items: List<ScheduleBlockEntity>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(item: ScheduleBlockEntity)
-
-    @Update
     suspend fun updateSchedule(item: ScheduleBlockEntity)
-
-    @Query("DELETE FROM schedule_blocks WHERE id = :id")
     suspend fun deleteSchedule(id: Long)
 
-    @Query("SELECT * FROM daily_quests ORDER BY id ASC")
     fun getAllDailyQuests(): Flow<List<DailyQuestEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDailyQuests(items: List<DailyQuestEntity>)
-
-    @Update
     suspend fun updateDailyQuest(item: DailyQuestEntity)
 
-    @Query("SELECT * FROM user_progress WHERE id = 1")
     fun getUserProgress(): Flow<UserProgressEntity?>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertUserProgress(progress: UserProgressEntity)
 
-    @Query("SELECT * FROM ai_coach_insights ORDER BY dateKey DESC")
     fun getAllAiInsights(): Flow<List<AiCoachInsightEntity>>
-
-    @Query("SELECT * FROM ai_coach_insights WHERE dateKey = :dateKey LIMIT 1")
     suspend fun getAiInsightForDate(dateKey: String): AiCoachInsightEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAiInsight(insight: AiCoachInsightEntity)
 }
 
-@Database(
-    entities = [
-        AppLimitEntity::class,
-        ShortFormShieldEntity::class,
-        FocusSessionEntity::class,
-        ScheduleBlockEntity::class,
-        DailyQuestEntity::class,
-        UserProgressEntity::class,
-        AiCoachInsightEntity::class
-    ],
-    version = 1,
-    exportSchema = false
-)
-abstract class RegainDatabase : RoomDatabase() {
-    abstract fun regainDao(): RegainDao
+class RegainDatabase private constructor(context: Context) :
+    SQLiteOpenHelper(context.applicationContext, "regain_zen_offline.db", null, 1),
+    RegainDao {
+
+    private val appLimitsFlow = MutableStateFlow<List<AppLimitEntity>>(emptyList())
+    private val shieldsFlow = MutableStateFlow<List<ShortFormShieldEntity>>(emptyList())
+    private val sessionsFlow = MutableStateFlow<List<FocusSessionEntity>>(emptyList())
+    private val schedulesFlow = MutableStateFlow<List<ScheduleBlockEntity>>(emptyList())
+    private val questsFlow = MutableStateFlow<List<DailyQuestEntity>>(emptyList())
+    private val progressFlow = MutableStateFlow<UserProgressEntity?>(null)
+    private val insightsFlow = MutableStateFlow<List<AiCoachInsightEntity>>(emptyList())
+
+    init {
+        refreshAllFlowsSync()
+    }
+
+    fun regainDao(): RegainDao = this
+
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS app_limits (
+                packageName TEXT PRIMARY KEY,
+                appName TEXT NOT NULL,
+                category TEXT NOT NULL,
+                iconKey TEXT NOT NULL,
+                dailyLimitMinutes INTEGER NOT NULL,
+                usedTodayMinutes INTEGER NOT NULL,
+                pickupsToday INTEGER NOT NULL,
+                blockedCountToday INTEGER NOT NULL,
+                isStrictLocked INTEGER NOT NULL,
+                isEnabled INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS short_form_shields (
+                id TEXT PRIMARY KEY,
+                platformName TEXT NOT NULL,
+                feedName TEXT NOT NULL,
+                shieldMode TEXT NOT NULL,
+                dailyCapMinutes INTEGER NOT NULL,
+                usedMinutesToday INTEGER NOT NULL,
+                interceptsToday INTEGER NOT NULL,
+                isEnabled INTEGER NOT NULL,
+                allowDirectMessages INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS focus_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                durationMinutes INTEGER NOT NULL,
+                ambientSound TEXT NOT NULL,
+                coinsEarned INTEGER NOT NULL,
+                completedAtTimestamp INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS schedule_blocks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                timeWindowLabel TEXT NOT NULL,
+                daysSummary TEXT NOT NULL,
+                targetSummary TEXT NOT NULL,
+                isStrictMode INTEGER NOT NULL,
+                isEnabled INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS daily_quests (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                subtitle TEXT NOT NULL,
+                rewardCoins INTEGER NOT NULL,
+                currentProgress INTEGER NOT NULL,
+                targetProgress INTEGER NOT NULL,
+                isCompleted INTEGER NOT NULL,
+                isClaimed INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS user_progress (
+                id INTEGER PRIMARY KEY,
+                regaLevel INTEGER NOT NULL,
+                regaStageName TEXT NOT NULL,
+                leafCoins INTEGER NOT NULL,
+                streakDays INTEGER NOT NULL,
+                mindfulGoalMinutes INTEGER NOT NULL,
+                savedMinutesToday INTEGER NOT NULL,
+                mindfulBreathsCompleted INTEGER NOT NULL,
+                strictModeGlobal INTEGER NOT NULL,
+                strictPassphrase TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS ai_coach_insights (
+                dateKey TEXT PRIMARY KEY,
+                requestsUsedToday INTEGER NOT NULL,
+                coachHeadline TEXT NOT NULL,
+                habitBottleneck TEXT NOT NULL,
+                timeSavedProjectionMinutes INTEGER NOT NULL,
+                microChallenge1 TEXT NOT NULL,
+                microChallenge2 TEXT NOT NULL,
+                microChallenge3 TEXT NOT NULL,
+                promptUsedPreview TEXT NOT NULL,
+                sourceMode TEXT NOT NULL,
+                generatedAtTimestamp INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        onCreate(db)
+    }
+
+    private fun refreshAllFlowsSync() {
+        val db = writableDatabase
+        appLimitsFlow.value = queryAppLimits(db)
+        shieldsFlow.value = queryShields(db)
+        sessionsFlow.value = querySessions(db)
+        schedulesFlow.value = querySchedules(db)
+        questsFlow.value = queryQuests(db)
+        progressFlow.value = queryUserProgress(db)
+        insightsFlow.value = queryInsights(db)
+    }
+
+    private fun queryAppLimits(db: SQLiteDatabase): List<AppLimitEntity> {
+        val list = mutableListOf<AppLimitEntity>()
+        db.rawQuery("SELECT * FROM app_limits ORDER BY usedTodayMinutes DESC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    AppLimitEntity(
+                        packageName = c.getString(c.getColumnIndexOrThrow("packageName")),
+                        appName = c.getString(c.getColumnIndexOrThrow("appName")),
+                        category = c.getString(c.getColumnIndexOrThrow("category")),
+                        iconKey = c.getString(c.getColumnIndexOrThrow("iconKey")),
+                        dailyLimitMinutes = c.getInt(c.getColumnIndexOrThrow("dailyLimitMinutes")),
+                        usedTodayMinutes = c.getInt(c.getColumnIndexOrThrow("usedTodayMinutes")),
+                        pickupsToday = c.getInt(c.getColumnIndexOrThrow("pickupsToday")),
+                        blockedCountToday = c.getInt(c.getColumnIndexOrThrow("blockedCountToday")),
+                        isStrictLocked = c.getInt(c.getColumnIndexOrThrow("isStrictLocked")) != 0,
+                        isEnabled = c.getInt(c.getColumnIndexOrThrow("isEnabled")) != 0
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun queryShields(db: SQLiteDatabase): List<ShortFormShieldEntity> {
+        val list = mutableListOf<ShortFormShieldEntity>()
+        db.rawQuery("SELECT * FROM short_form_shields ORDER BY interceptsToday DESC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    ShortFormShieldEntity(
+                        id = c.getString(c.getColumnIndexOrThrow("id")),
+                        platformName = c.getString(c.getColumnIndexOrThrow("platformName")),
+                        feedName = c.getString(c.getColumnIndexOrThrow("feedName")),
+                        shieldMode = c.getString(c.getColumnIndexOrThrow("shieldMode")),
+                        dailyCapMinutes = c.getInt(c.getColumnIndexOrThrow("dailyCapMinutes")),
+                        usedMinutesToday = c.getInt(c.getColumnIndexOrThrow("usedMinutesToday")),
+                        interceptsToday = c.getInt(c.getColumnIndexOrThrow("interceptsToday")),
+                        isEnabled = c.getInt(c.getColumnIndexOrThrow("isEnabled")) != 0,
+                        allowDirectMessages = c.getInt(c.getColumnIndexOrThrow("allowDirectMessages")) != 0
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun querySessions(db: SQLiteDatabase): List<FocusSessionEntity> {
+        val list = mutableListOf<FocusSessionEntity>()
+        db.rawQuery("SELECT * FROM focus_sessions ORDER BY completedAtTimestamp DESC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    FocusSessionEntity(
+                        id = c.getLong(c.getColumnIndexOrThrow("id")),
+                        title = c.getString(c.getColumnIndexOrThrow("title")),
+                        tag = c.getString(c.getColumnIndexOrThrow("tag")),
+                        mode = c.getString(c.getColumnIndexOrThrow("mode")),
+                        durationMinutes = c.getInt(c.getColumnIndexOrThrow("durationMinutes")),
+                        ambientSound = c.getString(c.getColumnIndexOrThrow("ambientSound")),
+                        coinsEarned = c.getInt(c.getColumnIndexOrThrow("coinsEarned")),
+                        completedAtTimestamp = c.getLong(c.getColumnIndexOrThrow("completedAtTimestamp"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun querySchedules(db: SQLiteDatabase): List<ScheduleBlockEntity> {
+        val list = mutableListOf<ScheduleBlockEntity>()
+        db.rawQuery("SELECT * FROM schedule_blocks ORDER BY id ASC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    ScheduleBlockEntity(
+                        id = c.getLong(c.getColumnIndexOrThrow("id")),
+                        title = c.getString(c.getColumnIndexOrThrow("title")),
+                        timeWindowLabel = c.getString(c.getColumnIndexOrThrow("timeWindowLabel")),
+                        daysSummary = c.getString(c.getColumnIndexOrThrow("daysSummary")),
+                        targetSummary = c.getString(c.getColumnIndexOrThrow("targetSummary")),
+                        isStrictMode = c.getInt(c.getColumnIndexOrThrow("isStrictMode")) != 0,
+                        isEnabled = c.getInt(c.getColumnIndexOrThrow("isEnabled")) != 0
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun queryQuests(db: SQLiteDatabase): List<DailyQuestEntity> {
+        val list = mutableListOf<DailyQuestEntity>()
+        db.rawQuery("SELECT * FROM daily_quests ORDER BY id ASC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    DailyQuestEntity(
+                        id = c.getString(c.getColumnIndexOrThrow("id")),
+                        title = c.getString(c.getColumnIndexOrThrow("title")),
+                        subtitle = c.getString(c.getColumnIndexOrThrow("subtitle")),
+                        rewardCoins = c.getInt(c.getColumnIndexOrThrow("rewardCoins")),
+                        currentProgress = c.getInt(c.getColumnIndexOrThrow("currentProgress")),
+                        targetProgress = c.getInt(c.getColumnIndexOrThrow("targetProgress")),
+                        isCompleted = c.getInt(c.getColumnIndexOrThrow("isCompleted")) != 0,
+                        isClaimed = c.getInt(c.getColumnIndexOrThrow("isClaimed")) != 0
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun queryUserProgress(db: SQLiteDatabase): UserProgressEntity? {
+        db.rawQuery("SELECT * FROM user_progress WHERE id = 1 LIMIT 1", null).use { c ->
+            if (c.moveToFirst()) {
+                return UserProgressEntity(
+                    id = c.getInt(c.getColumnIndexOrThrow("id")),
+                    regaLevel = c.getInt(c.getColumnIndexOrThrow("regaLevel")),
+                    regaStageName = c.getString(c.getColumnIndexOrThrow("regaStageName")),
+                    leafCoins = c.getInt(c.getColumnIndexOrThrow("leafCoins")),
+                    streakDays = c.getInt(c.getColumnIndexOrThrow("streakDays")),
+                    mindfulGoalMinutes = c.getInt(c.getColumnIndexOrThrow("mindfulGoalMinutes")),
+                    savedMinutesToday = c.getInt(c.getColumnIndexOrThrow("savedMinutesToday")),
+                    mindfulBreathsCompleted = c.getInt(c.getColumnIndexOrThrow("mindfulBreathsCompleted")),
+                    strictModeGlobal = c.getInt(c.getColumnIndexOrThrow("strictModeGlobal")) != 0,
+                    strictPassphrase = c.getString(c.getColumnIndexOrThrow("strictPassphrase"))
+                )
+            }
+        }
+        return null
+    }
+
+    private fun queryInsights(db: SQLiteDatabase): List<AiCoachInsightEntity> {
+        val list = mutableListOf<AiCoachInsightEntity>()
+        db.rawQuery("SELECT * FROM ai_coach_insights ORDER BY dateKey DESC", null).use { c ->
+            while (c.moveToNext()) {
+                list.add(
+                    AiCoachInsightEntity(
+                        dateKey = c.getString(c.getColumnIndexOrThrow("dateKey")),
+                        requestsUsedToday = c.getInt(c.getColumnIndexOrThrow("requestsUsedToday")),
+                        coachHeadline = c.getString(c.getColumnIndexOrThrow("coachHeadline")),
+                        habitBottleneck = c.getString(c.getColumnIndexOrThrow("habitBottleneck")),
+                        timeSavedProjectionMinutes = c.getInt(c.getColumnIndexOrThrow("timeSavedProjectionMinutes")),
+                        microChallenge1 = c.getString(c.getColumnIndexOrThrow("microChallenge1")),
+                        microChallenge2 = c.getString(c.getColumnIndexOrThrow("microChallenge2")),
+                        microChallenge3 = c.getString(c.getColumnIndexOrThrow("microChallenge3")),
+                        promptUsedPreview = c.getString(c.getColumnIndexOrThrow("promptUsedPreview")),
+                        sourceMode = c.getString(c.getColumnIndexOrThrow("sourceMode")),
+                        generatedAtTimestamp = c.getLong(c.getColumnIndexOrThrow("generatedAtTimestamp"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    override fun getAllAppLimits(): Flow<List<AppLimitEntity>> = appLimitsFlow.asStateFlow()
+
+    override suspend fun insertAppLimits(items: List<AppLimitEntity>) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            items.forEach { item ->
+                db.insertWithOnConflict("app_limits", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        appLimitsFlow.value = queryAppLimits(db)
+    }
+
+    override suspend fun updateAppLimit(item: AppLimitEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("app_limits", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        appLimitsFlow.value = queryAppLimits(db)
+    }
+
+    override fun getAllShortFormShields(): Flow<List<ShortFormShieldEntity>> = shieldsFlow.asStateFlow()
+
+    override suspend fun insertShortFormShields(items: List<ShortFormShieldEntity>) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            items.forEach { item ->
+                db.insertWithOnConflict("short_form_shields", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        shieldsFlow.value = queryShields(db)
+    }
+
+    override suspend fun updateShortFormShield(item: ShortFormShieldEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("short_form_shields", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        shieldsFlow.value = queryShields(db)
+    }
+
+    override fun getAllFocusSessions(): Flow<List<FocusSessionEntity>> = sessionsFlow.asStateFlow()
+
+    override suspend fun insertFocusSession(item: FocusSessionEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("focus_sessions", null, item.toContentValues(includeId = item.id != 0L), SQLiteDatabase.CONFLICT_REPLACE)
+        sessionsFlow.value = querySessions(db)
+    }
+
+    override suspend fun insertFocusSessions(items: List<FocusSessionEntity>) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            items.forEach { item ->
+                db.insertWithOnConflict("focus_sessions", null, item.toContentValues(includeId = item.id != 0L), SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        sessionsFlow.value = querySessions(db)
+    }
+
+    override fun getAllSchedules(): Flow<List<ScheduleBlockEntity>> = schedulesFlow.asStateFlow()
+
+    override suspend fun insertSchedules(items: List<ScheduleBlockEntity>) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            items.forEach { item ->
+                db.insertWithOnConflict("schedule_blocks", null, item.toContentValues(includeId = item.id != 0L), SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        schedulesFlow.value = querySchedules(db)
+    }
+
+    override suspend fun insertSchedule(item: ScheduleBlockEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("schedule_blocks", null, item.toContentValues(includeId = item.id != 0L), SQLiteDatabase.CONFLICT_REPLACE)
+        schedulesFlow.value = querySchedules(db)
+    }
+
+    override suspend fun updateSchedule(item: ScheduleBlockEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("schedule_blocks", null, item.toContentValues(includeId = true), SQLiteDatabase.CONFLICT_REPLACE)
+        schedulesFlow.value = querySchedules(db)
+    }
+
+    override suspend fun deleteSchedule(id: Long) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.delete("schedule_blocks", "id = ?", arrayOf(id.toString()))
+        schedulesFlow.value = querySchedules(db)
+    }
+
+    override fun getAllDailyQuests(): Flow<List<DailyQuestEntity>> = questsFlow.asStateFlow()
+
+    override suspend fun insertDailyQuests(items: List<DailyQuestEntity>) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            items.forEach { item ->
+                db.insertWithOnConflict("daily_quests", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        questsFlow.value = queryQuests(db)
+    }
+
+    override suspend fun updateDailyQuest(item: DailyQuestEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("daily_quests", null, item.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        questsFlow.value = queryQuests(db)
+    }
+
+    override fun getUserProgress(): Flow<UserProgressEntity?> = progressFlow.asStateFlow()
+
+    override suspend fun upsertUserProgress(progress: UserProgressEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("user_progress", null, progress.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        progressFlow.value = queryUserProgress(db)
+    }
+
+    override fun getAllAiInsights(): Flow<List<AiCoachInsightEntity>> = insightsFlow.asStateFlow()
+
+    override suspend fun getAiInsightForDate(dateKey: String): AiCoachInsightEntity? = withContext(Dispatchers.IO) {
+        insightsFlow.value.firstOrNull { it.dateKey == dateKey }
+    }
+
+    override suspend fun upsertAiInsight(insight: AiCoachInsightEntity) = withContext(Dispatchers.IO) {
+        val db = writableDatabase
+        db.insertWithOnConflict("ai_coach_insights", null, insight.toContentValues(), SQLiteDatabase.CONFLICT_REPLACE)
+        insightsFlow.value = queryInsights(db)
+    }
 
     companion object {
         @Volatile
@@ -195,16 +565,94 @@ abstract class RegainDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): RegainDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    RegainDatabase::class.java,
-                    "regain_zen_offline.db"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
+                val instance = RegainDatabase(context.applicationContext)
                 INSTANCE = instance
                 instance
             }
         }
     }
+}
+
+private fun AppLimitEntity.toContentValues() = ContentValues().apply {
+    put("packageName", packageName)
+    put("appName", appName)
+    put("category", category)
+    put("iconKey", iconKey)
+    put("dailyLimitMinutes", dailyLimitMinutes)
+    put("usedTodayMinutes", usedTodayMinutes)
+    put("pickupsToday", pickupsToday)
+    put("blockedCountToday", blockedCountToday)
+    put("isStrictLocked", if (isStrictLocked) 1 else 0)
+    put("isEnabled", if (isEnabled) 1 else 0)
+}
+
+private fun ShortFormShieldEntity.toContentValues() = ContentValues().apply {
+    put("id", id)
+    put("platformName", platformName)
+    put("feedName", feedName)
+    put("shieldMode", shieldMode)
+    put("dailyCapMinutes", dailyCapMinutes)
+    put("usedMinutesToday", usedMinutesToday)
+    put("interceptsToday", interceptsToday)
+    put("isEnabled", if (isEnabled) 1 else 0)
+    put("allowDirectMessages", if (allowDirectMessages) 1 else 0)
+}
+
+private fun FocusSessionEntity.toContentValues(includeId: Boolean) = ContentValues().apply {
+    if (includeId) put("id", id)
+    put("title", title)
+    put("tag", tag)
+    put("mode", mode)
+    put("durationMinutes", durationMinutes)
+    put("ambientSound", ambientSound)
+    put("coinsEarned", coinsEarned)
+    put("completedAtTimestamp", completedAtTimestamp)
+}
+
+private fun ScheduleBlockEntity.toContentValues(includeId: Boolean) = ContentValues().apply {
+    if (includeId) put("id", id)
+    put("title", title)
+    put("timeWindowLabel", timeWindowLabel)
+    put("daysSummary", daysSummary)
+    put("targetSummary", targetSummary)
+    put("isStrictMode", if (isStrictMode) 1 else 0)
+    put("isEnabled", if (isEnabled) 1 else 0)
+}
+
+private fun DailyQuestEntity.toContentValues() = ContentValues().apply {
+    put("id", id)
+    put("title", title)
+    put("subtitle", subtitle)
+    put("rewardCoins", rewardCoins)
+    put("currentProgress", currentProgress)
+    put("targetProgress", targetProgress)
+    put("isCompleted", if (isCompleted) 1 else 0)
+    put("isClaimed", if (isClaimed) 1 else 0)
+}
+
+private fun UserProgressEntity.toContentValues() = ContentValues().apply {
+    put("id", id)
+    put("regaLevel", regaLevel)
+    put("regaStageName", regaStageName)
+    put("leafCoins", leafCoins)
+    put("streakDays", streakDays)
+    put("mindfulGoalMinutes", mindfulGoalMinutes)
+    put("savedMinutesToday", savedMinutesToday)
+    put("mindfulBreathsCompleted", mindfulBreathsCompleted)
+    put("strictModeGlobal", if (strictModeGlobal) 1 else 0)
+    put("strictPassphrase", strictPassphrase)
+}
+
+private fun AiCoachInsightEntity.toContentValues() = ContentValues().apply {
+    put("dateKey", dateKey)
+    put("requestsUsedToday", requestsUsedToday)
+    put("coachHeadline", coachHeadline)
+    put("habitBottleneck", habitBottleneck)
+    put("timeSavedProjectionMinutes", timeSavedProjectionMinutes)
+    put("microChallenge1", microChallenge1)
+    put("microChallenge2", microChallenge2)
+    put("microChallenge3", microChallenge3)
+    put("promptUsedPreview", promptUsedPreview)
+    put("sourceMode", sourceMode)
+    put("generatedAtTimestamp", generatedAtTimestamp)
 }
