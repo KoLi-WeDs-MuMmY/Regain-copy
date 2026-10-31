@@ -52,7 +52,7 @@ data class AnimatedPopUpAlert(
     val id: Long = System.currentTimeMillis(),
     val title: String,
     val message: String,
-    val badgeText: String = "Regain Zen v1.1",
+    val badgeText: String = "Regain Zen v1.2",
     val actionLabel: String? = null,
     val isWarning: Boolean = false
 )
@@ -83,7 +83,8 @@ data class MindfulInterceptState(
     val usedMinutes: Int = 0,
     val limitMinutes: Int = 30,
     val isStrictLocked: Boolean = false,
-    val keepDmsAvailable: Boolean = true
+    val keepDmsAvailable: Boolean = true,
+    val packageName: String = "com.regainzen.preview"
 )
 
 data class ActiveTimerUiState(
@@ -841,7 +842,8 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 usedMinutes = usedMinutes,
                 limitMinutes = limitMinutes,
                 isStrictLocked = isStrictLocked,
-                keepDmsAvailable = keepDmsAvailable
+                keepDmsAvailable = keepDmsAvailable,
+                packageName = packageName
             )
         }
     }
@@ -876,8 +878,12 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun grantEmergencyFiveMinBypass() {
-        val target = _interceptState.value.targetName
+    fun grantEmergencyFiveMinBypass(minutes: Int = 5) {
+        val currentIntercept = _interceptState.value
+        val target = currentIntercept.targetName
+        val pkg = currentIntercept.packageName
+        val validMinutes = minutes.coerceIn(1, 60)
+        RegainOverlayWindowManager.grantBreakMinutes(pkg, validMinutes)
         _interceptState.update { it.copy(isVisible = false) }
         viewModelScope.launch {
             val progress = uiState.value.userProgress
@@ -885,8 +891,8 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 progress.copy(mindfulBreathsCompleted = progress.mindfulBreathsCompleted + 1)
             )
             postBanner(
-                message = "Mindful pause complete. Granted a 5-minute intentional window for $target.",
-                title = "5m Grace Window Active",
+                message = "Mindful pause complete. Granted a ${validMinutes}-minute intentional break for $target.",
+                title = "${validMinutes}m Break Active",
                 badgeText = target
             )
         }

@@ -2,50 +2,83 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Mode — Calm Organic Zen (Warm Cream, Linen, Deep Forest Sage, Terracotta)
-val ZenCreamBackground = Color(0xFFF7F5F0)
-val ZenLinenSurface = Color(0xFFEFECE4)
-val ZenElevatedCard = Color(0xFFFFFFFF)
-val ZenSagePrimary = Color(0xFF3A5A40)
+// ============================================================================
+// Version 1.2 — Nocturnal Ocular Sanctuary & Strict Wavelength Discipline
+// ============================================================================
+
+// 1. Deeply Muted Shadowy Canvas & Layered Elevated Panels (Ocular Relaxation)
+val SanctuaryCanvasDeep = Color(0xFF0C100E)
+val SanctuaryPanelTier1 = Color(0xFF141B18)
+val SanctuaryPanelTier2 = Color(0xFF1C2521)
+val SanctuaryBorderMuted = Color(0xFF26332D)
+
+// 2. Low-Glare Reading Brightness & Quiet Secondary Details
+val SanctuaryTextLowGlare = Color(0xFFE4EBE7)
+val SanctuaryTextSecondaryMuted = Color(0xFF8A9B92)
+
+// 3. Mid-Spectrum Biologically Calming Frequency (Active Study Progress & Milestones)
+val MidSpectrumCalmingEmerald = Color(0xFF4E9F76)
+val MidSpectrumEmeraldGlow = Color(0xFF68B68E)
+val MidSpectrumOnPrimary = Color(0xFF081810)
+val MidSpectrumContainer = Color(0xFF183326)
+val MidSpectrumOnContainer = Color(0xFFD2EFE0)
+
+val MidSpectrumSecondary = Color(0xFF5D987B)
+val MidSpectrumOnSecondary = Color(0xFF0A1D14)
+val MidSpectrumSecondaryContainer = Color(0xFF1D3529)
+val MidSpectrumOnSecondaryContainer = Color(0xFFCDE8DA)
+
+// 4. Long-Wavelength Alarm Signal (Strictly for Interception & Habit-Shock Pulse)
+val LongWavelengthInterceptCrimson = Color(0xFFE0533C)
+val LongWavelengthInterceptPulse = Color(0xFFFF6B4A)
+val LongWavelengthOnTertiary = Color(0xFF2B0803)
+val LongWavelengthContainer = Color(0xFF3E1812)
+val LongWavelengthOnContainer = Color(0xFFFFDAD3)
+
+// Legacy / Light Mode Tokens (Softened Low-Glare Warm Alabaster)
+val ZenCreamBackground = Color(0xFFF3F1EC)
+val ZenLinenSurface = Color(0xFFE9E6DF)
+val ZenElevatedCard = Color(0xFFFAF9F5)
+val ZenSagePrimary = Color(0xFF2E6F4E)
 val ZenSageOnPrimary = Color(0xFFFDFCF9)
-val ZenSageContainer = Color(0xFFDCE5DC)
-val ZenOnSageContainer = Color(0xFF1B3020)
+val ZenSageContainer = Color(0xFFD4E9DD)
+val ZenOnSageContainer = Color(0xFF102A1D)
 
-val ZenEucalyptusSecondary = Color(0xFF588157)
+val ZenEucalyptusSecondary = Color(0xFF437A5E)
 val ZenOnSecondary = Color(0xFFFFFFFF)
-val ZenSecondaryContainer = Color(0xFFE2ECE0)
-val ZenOnSecondaryContainer = Color(0xFF223823)
+val ZenSecondaryContainer = Color(0xFFDCECE3)
+val ZenOnSecondaryContainer = Color(0xFF173324)
 
-val ZenTerracottaTertiary = Color(0xFFD47A55)
+val ZenTerracottaTertiary = Color(0xFFD64933)
 val ZenOnTertiary = Color(0xFFFFFFFF)
-val ZenTerracottaContainer = Color(0xFFF9E4DA)
-val ZenOnTerracottaContainer = Color(0xFF4A2010)
+val ZenTerracottaContainer = Color(0xFFFCE0DB)
+val ZenOnTerracottaContainer = Color(0xFF4A1209)
 
 val ZenAmberAccent = Color(0xFFE09F3E)
-val ZenTextPrimary = Color(0xFF1E2620)
-val ZenTextSecondary = Color(0xFF526055)
-val ZenOutline = Color(0xFFD2CFC4)
-val ZenError = Color(0xFFB84A39)
+val ZenTextPrimary = Color(0xFF1A221E)
+val ZenTextSecondary = Color(0xFF505E56)
+val ZenOutline = Color(0xFFCCD4CE)
+val ZenError = Color(0xFFE0533C)
 
-// Dark Mode — Deep Moss Sanctuary
-val ZenDarkBackground = Color(0xFF131915)
-val ZenDarkSurface = Color(0xFF1B241E)
-val ZenDarkElevatedCard = Color(0xFF232E27)
-val ZenDarkPrimary = Color(0xFFA3B18A)
-val ZenDarkOnPrimary = Color(0xFF17261A)
-val ZenDarkPrimaryContainer = Color(0xFF2D4732)
-val ZenDarkOnPrimaryContainer = Color(0xFFDCE5DC)
+// Aliases mapped to Nocturnal Ocular Sanctuary
+val ZenDarkBackground = SanctuaryCanvasDeep
+val ZenDarkSurface = SanctuaryPanelTier1
+val ZenDarkElevatedCard = SanctuaryPanelTier2
+val ZenDarkPrimary = MidSpectrumEmeraldGlow
+val ZenDarkOnPrimary = MidSpectrumOnPrimary
+val ZenDarkPrimaryContainer = MidSpectrumContainer
+val ZenDarkOnPrimaryContainer = MidSpectrumOnContainer
 
-val ZenDarkSecondary = Color(0xFF84A98C)
-val ZenDarkOnSecondary = Color(0xFF14281B)
-val ZenDarkSecondaryContainer = Color(0xFF293E2F)
-val ZenDarkOnSecondaryContainer = Color(0xFFD6E6D9)
+val ZenDarkSecondary = MidSpectrumSecondary
+val ZenDarkOnSecondary = MidSpectrumOnSecondary
+val ZenDarkSecondaryContainer = MidSpectrumSecondaryContainer
+val ZenDarkOnSecondaryContainer = MidSpectrumOnSecondaryContainer
 
-val ZenDarkTertiary = Color(0xFFE49574)
-val ZenDarkOnTertiary = Color(0xFF3D190A)
-val ZenDarkTertiaryContainer = Color(0xFF5C2B17)
-val ZenDarkOnTertiaryContainer = Color(0xFFF9E4DA)
+val ZenDarkTertiary = LongWavelengthInterceptCrimson
+val ZenDarkOnTertiary = LongWavelengthOnTertiary
+val ZenDarkTertiaryContainer = LongWavelengthContainer
+val ZenDarkOnTertiaryContainer = LongWavelengthOnContainer
 
-val ZenDarkTextPrimary = Color(0xFFECEAE2)
-val ZenDarkTextSecondary = Color(0xFFAAB5AC)
-val ZenDarkOutline = Color(0xFF36443A)
+val ZenDarkTextPrimary = SanctuaryTextLowGlare
+val ZenDarkTextSecondary = SanctuaryTextSecondaryMuted
+val ZenDarkOutline = SanctuaryBorderMuted

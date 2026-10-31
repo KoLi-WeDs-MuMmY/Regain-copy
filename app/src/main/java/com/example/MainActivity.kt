@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -22,8 +23,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -77,6 +81,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,6 +106,7 @@ import com.example.ui.RegainTab
 import com.example.ui.RegainUiState
 import com.example.ui.RegainViewModel
 import com.example.ui.components.MindfulInterceptModal
+import com.example.ui.components.RegainOpeningTransition
 import com.example.ui.computeAdaptiveLayoutInfo
 import com.example.ui.screens.AiCoachInsightsScreen
 import com.example.ui.screens.FocusStudioScreen
@@ -131,6 +137,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         isAppInForeground = true
         extractInterceptExtras(intent)
+        val shouldPlayOpeningTransition = savedInstanceState == null &&
+            pendingInterceptTarget.isNullOrBlank() &&
+            pendingReturnedFromOverlayTarget.isNullOrBlank()
+
         enableEdgeToEdge()
         setContent {
             RegainZenTheme {
@@ -138,6 +148,10 @@ class MainActivity : ComponentActivity() {
                 val uiState by regainViewModel.uiState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
                 val lifecycleOwner = LocalLifecycleOwner.current
+
+                var showOpeningTransition by rememberSaveable {
+                    mutableStateOf(shouldPlayOpeningTransition)
+                }
 
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
@@ -173,6 +187,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingReturnedFromOverlayTarget) {
                     val returnedTarget = pendingReturnedFromOverlayTarget
                     if (!returnedTarget.isNullOrBlank()) {
+                        showOpeningTransition = false
                         regainViewModel.handleReturnedFromOverlaySanctuary(returnedTarget)
                         pendingReturnedFromOverlayTarget = null
                     }
@@ -181,6 +196,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingInterceptTarget, pendingInterceptSubtitle) {
                     val target = pendingInterceptTarget
                     if (!target.isNullOrBlank()) {
+                        showOpeningTransition = false
                         regainViewModel.handleIncomingInterceptIntent(target, pendingInterceptSubtitle)
                         pendingInterceptTarget = null
                         pendingInterceptSubtitle = null
@@ -194,23 +210,30 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                RegainZenAdaptiveApp(
-                    uiState = uiState,
-                    viewModel = regainViewModel,
-                    onRequestNotificationPermission = requestNotificationPermissionAction,
-                    onRequestOverlayPermission = {
-                        RegainPermissionsManager.openOverlayPermissionSettings(context)
-                    },
-                    onRequestUsagePermission = {
-                        RegainPermissionsManager.openUsageAccessSettings(context)
-                    },
-                    onRequestAccessibilityPermission = {
-                        RegainPermissionsManager.openAccessibilitySettings(context)
-                    },
-                    onRequestBatteryPermission = {
-                        RegainPermissionsManager.requestIgnoreBatteryOptimizations(context)
-                    }
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    RegainZenAdaptiveApp(
+                        uiState = uiState,
+                        viewModel = regainViewModel,
+                        onRequestNotificationPermission = requestNotificationPermissionAction,
+                        onRequestOverlayPermission = {
+                            RegainPermissionsManager.openOverlayPermissionSettings(context)
+                        },
+                        onRequestUsagePermission = {
+                            RegainPermissionsManager.openUsageAccessSettings(context)
+                        },
+                        onRequestAccessibilityPermission = {
+                            RegainPermissionsManager.openAccessibilitySettings(context)
+                        },
+                        onRequestBatteryPermission = {
+                            RegainPermissionsManager.requestIgnoreBatteryOptimizations(context)
+                        }
+                    )
+
+                    RegainOpeningTransition(
+                        visible = showOpeningTransition,
+                        onOpeningFinished = { showOpeningTransition = false }
+                    )
+                }
             }
         }
     }
@@ -389,6 +412,11 @@ fun RegainZenAdaptiveApp(
     }
 }
 
+/**
+ * Renders the active tab screen inside a directional [AnimatedContent] transition container
+ * so interchanging between tabs (`SANCTUARY`, `FOCUS`, `SHIELD`, `ROOMS`, `AI_COACH`) plays a
+ * smooth horizontal slide + scale + fade transition compatible with all screen sizes.
+ */
 @Composable
 private fun RegainScreenContent(
     uiState: RegainUiState,
@@ -400,122 +428,141 @@ private fun RegainScreenContent(
     onRequestAccessibilityPermission: () -> Unit,
     onRequestBatteryPermission: () -> Unit
 ) {
-    when (uiState.currentTab) {
-        RegainTab.SANCTUARY -> SanctuaryHomeScreen(
-            uiState = uiState,
-            layoutInfo = layoutInfo,
-            onNavigateTab = viewModel::selectTab,
-            onStartQuickFocus = {
-                viewModel.selectTab(RegainTab.FOCUS)
-                if (!uiState.timerState.isRunning) {
-                    viewModel.toggleStartPauseFocusTimer()
-                }
-            },
-            onPreviewReelsIntercept = {
-                val reelsShield = uiState.shortFormShields.find { it.id == "instagram_reels" }
-                val app = uiState.appLimits.find { it.packageName == "com.instagram.android" }
-                viewModel.triggerMindfulIntercept(
-                    targetName = "Instagram Reels",
-                    targetSubtitle = "Targeted Short-Form Feed Shield (DMs Open)",
-                    usedMinutes = reelsShield?.usedMinutesToday ?: 0,
-                    limitMinutes = app?.dailyLimitMinutes ?: 30,
-                    isStrictLocked = false,
-                    keepDmsAvailable = true
-                )
-            },
-            onOpenPermissionsSetup = viewModel::openPermissionsDialog,
-            onClaimQuest = viewModel::claimDailyQuestReward,
-            onUpdateDailyGoal = viewModel::updateMindfulDailyGoal
-        )
+    AnimatedContent(
+        targetState = uiState.currentTab,
+        transitionSpec = {
+            val movingForward = targetState.ordinal >= initialState.ordinal
+            val enterSlide = slideInHorizontally(
+                animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+                initialOffsetX = { fullWidth -> if (movingForward) fullWidth / 6 else -fullWidth / 6 }
+            )
+            val exitSlide = slideOutHorizontally(
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                targetOffsetX = { fullWidth -> if (movingForward) -fullWidth / 6 else fullWidth / 6 }
+            )
+            (enterSlide + fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
+                .togetherWith(exitSlide + fadeOut(animationSpec = tween(180)))
+        },
+        label = "regain_tab_transition"
+    ) { targetTab ->
+        when (targetTab) {
+            RegainTab.SANCTUARY -> SanctuaryHomeScreen(
+                uiState = uiState,
+                layoutInfo = layoutInfo,
+                onNavigateTab = viewModel::selectTab,
+                onStartQuickFocus = {
+                    viewModel.selectTab(RegainTab.FOCUS)
+                    if (!uiState.timerState.isRunning) {
+                        viewModel.toggleStartPauseFocusTimer()
+                    }
+                },
+                onPreviewReelsIntercept = {
+                    val reelsShield = uiState.shortFormShields.find { it.id == "instagram_reels" }
+                    val app = uiState.appLimits.find { it.packageName == "com.instagram.android" }
+                    viewModel.triggerMindfulIntercept(
+                        targetName = "Instagram Reels",
+                        targetSubtitle = "Targeted Short-Form Feed Shield (DMs Open)",
+                        usedMinutes = reelsShield?.usedMinutesToday ?: 0,
+                        limitMinutes = app?.dailyLimitMinutes ?: 30,
+                        isStrictLocked = false,
+                        keepDmsAvailable = true,
+                        packageName = "com.instagram.android"
+                    )
+                },
+                onOpenPermissionsSetup = viewModel::openPermissionsDialog,
+                onClaimQuest = viewModel::claimDailyQuestReward,
+                onUpdateDailyGoal = viewModel::updateMindfulDailyGoal
+            )
 
-        RegainTab.FOCUS -> FocusStudioScreen(
-            timerState = uiState.timerState,
-            recentSessions = uiState.focusSessions,
-            layoutInfo = layoutInfo,
-            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-            onSelectMode = viewModel::selectTimerMode,
-            onUpdateCustomMinutes = viewModel::updateCustomCountdownMinutes,
-            onSelectTag = viewModel::selectFocusTag,
-            onToggleStrictLock = viewModel::toggleStrictFocusLock,
-            onSelectAmbientSound = viewModel::selectAmbientSound,
-            onUpdateVolume = viewModel::updateSoundVolume,
-            onToggleSoundPreview = viewModel::toggleAmbientPreview,
-            onToggleStartPause = viewModel::toggleStartPauseFocusTimer,
-            onResetTimer = viewModel::resetFocusTimer,
-            onSaveExactStudiedTime = viewModel::completeCurrentFocusSession
-        )
+            RegainTab.FOCUS -> FocusStudioScreen(
+                timerState = uiState.timerState,
+                recentSessions = uiState.focusSessions,
+                layoutInfo = layoutInfo,
+                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+                onSelectMode = viewModel::selectTimerMode,
+                onUpdateCustomMinutes = viewModel::updateCustomCountdownMinutes,
+                onSelectTag = viewModel::selectFocusTag,
+                onToggleStrictLock = viewModel::toggleStrictFocusLock,
+                onSelectAmbientSound = viewModel::selectAmbientSound,
+                onUpdateVolume = viewModel::updateSoundVolume,
+                onToggleSoundPreview = viewModel::toggleAmbientPreview,
+                onToggleStartPause = viewModel::toggleStartPauseFocusTimer,
+                onResetTimer = viewModel::resetFocusTimer,
+                onSaveExactStudiedTime = viewModel::completeCurrentFocusSession
+            )
 
-        RegainTab.SHIELD -> ShieldLimitsScreen(
-            permissionStatus = uiState.permissionStatus,
-            discoverableApps = uiState.discoverableApps,
-            shortFormShields = uiState.shortFormShields,
-            appLimits = uiState.appLimits,
-            schedules = uiState.schedules,
-            layoutInfo = layoutInfo,
-            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-            onRequestNotificationPermission = onRequestNotificationPermission,
-            onRequestOverlayPermission = onRequestOverlayPermission,
-            onRequestUsagePermission = onRequestUsagePermission,
-            onRequestAccessibilityPermission = onRequestAccessibilityPermission,
-            onRequestBatteryPermission = onRequestBatteryPermission,
-            onAddOrBlockApp = viewModel::addOrBlockSelectedApp,
-            onToggleBlockAppCompletely = viewModel::toggleBlockAppCompletely,
-            onRemoveAppFromBlocker = viewModel::removeAppFromBlocker,
-            onCycleShieldMode = viewModel::cycleShortFormShieldMode,
-            onToggleShieldEnabled = viewModel::toggleShortFormShieldEnabled,
-            onToggleShieldKeepDms = viewModel::toggleShortFormKeepDms,
-            onTestShieldIntercept = { shield ->
-                viewModel.triggerMindfulIntercept(
-                    targetName = "${shield.platformName} (${shield.feedName})",
-                    targetSubtitle = "Targeted Short-Form Shield",
-                    usedMinutes = shield.usedMinutesToday,
-                    limitMinutes = shield.dailyCapMinutes.coerceAtLeast(15),
-                    isStrictLocked = false,
-                    keepDmsAvailable = shield.allowDirectMessages
-                )
-            },
-            onToggleAppLimit = viewModel::toggleAppLimitEnabled,
-            onUpdateAppLimitMinutes = viewModel::updateAppDailyLimitMinutes,
-            onToggleAppStrict = viewModel::toggleAppStrictLock,
-            onTestAppIntercept = { app ->
-                viewModel.triggerMindfulIntercept(
-                    targetName = app.appName,
-                    targetSubtitle = if (app.isBlockedCompletely) {
-                        "Blocked Completely by Regain Zen App Blocker"
-                    } else {
-                        "${app.category} · Daily Cap ${app.dailyLimitMinutes}m"
-                    },
-                    usedMinutes = app.usedTodayMinutes,
-                    limitMinutes = app.dailyLimitMinutes,
-                    isStrictLocked = app.isStrictLocked,
-                    keepDmsAvailable = false,
-                    packageName = app.packageName
-                )
-            },
-            onToggleSchedule = viewModel::toggleScheduleEnabled,
-            onAddSchedule = viewModel::addCustomSchedule,
-            onDeleteSchedule = viewModel::deleteSchedule
-        )
+            RegainTab.SHIELD -> ShieldLimitsScreen(
+                permissionStatus = uiState.permissionStatus,
+                discoverableApps = uiState.discoverableApps,
+                shortFormShields = uiState.shortFormShields,
+                appLimits = uiState.appLimits,
+                schedules = uiState.schedules,
+                layoutInfo = layoutInfo,
+                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+                onRequestNotificationPermission = onRequestNotificationPermission,
+                onRequestOverlayPermission = onRequestOverlayPermission,
+                onRequestUsagePermission = onRequestUsagePermission,
+                onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+                onRequestBatteryPermission = onRequestBatteryPermission,
+                onAddOrBlockApp = viewModel::addOrBlockSelectedApp,
+                onToggleBlockAppCompletely = viewModel::toggleBlockAppCompletely,
+                onRemoveAppFromBlocker = viewModel::removeAppFromBlocker,
+                onCycleShieldMode = viewModel::cycleShortFormShieldMode,
+                onToggleShieldEnabled = viewModel::toggleShortFormShieldEnabled,
+                onToggleShieldKeepDms = viewModel::toggleShortFormKeepDms,
+                onTestShieldIntercept = { shield ->
+                    viewModel.triggerMindfulIntercept(
+                        targetName = "${shield.platformName} (${shield.feedName})",
+                        targetSubtitle = "Targeted Short-Form Shield",
+                        usedMinutes = shield.usedMinutesToday,
+                        limitMinutes = shield.dailyCapMinutes.coerceAtLeast(15),
+                        isStrictLocked = false,
+                        keepDmsAvailable = shield.allowDirectMessages
+                    )
+                },
+                onToggleAppLimit = viewModel::toggleAppLimitEnabled,
+                onUpdateAppLimitMinutes = viewModel::updateAppDailyLimitMinutes,
+                onToggleAppStrict = viewModel::toggleAppStrictLock,
+                onTestAppIntercept = { app ->
+                    viewModel.triggerMindfulIntercept(
+                        targetName = app.appName,
+                        targetSubtitle = if (app.isBlockedCompletely) {
+                            "Blocked Completely by Regain Zen App Blocker"
+                        } else {
+                            "${app.category} · Daily Cap ${app.dailyLimitMinutes}m"
+                        },
+                        usedMinutes = app.usedTodayMinutes,
+                        limitMinutes = app.dailyLimitMinutes,
+                        isStrictLocked = app.isStrictLocked,
+                        keepDmsAvailable = false,
+                        packageName = app.packageName
+                    )
+                },
+                onToggleSchedule = viewModel::toggleScheduleEnabled,
+                onAddSchedule = viewModel::addCustomSchedule,
+                onDeleteSchedule = viewModel::deleteSchedule
+            )
 
-        RegainTab.ROOMS -> StudyRoomsScreen(
-            studyRoomState = uiState.studyRoomState,
-            userFocusedMinutesToday = uiState.totalFocusedMinutesToday,
-            userStreakDays = uiState.userProgress.streakDays,
-            layoutInfo = layoutInfo,
-            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-            onJoinRoom = viewModel::joinStudyRoom,
-            onToggleRoomTicker = viewModel::toggleStudyRoomFocusTicker,
-            onSendCheer = viewModel::sendRoomFocusCheer
-        )
+            RegainTab.ROOMS -> StudyRoomsScreen(
+                studyRoomState = uiState.studyRoomState,
+                userFocusedMinutesToday = uiState.totalFocusedMinutesToday,
+                userStreakDays = uiState.userProgress.streakDays,
+                layoutInfo = layoutInfo,
+                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+                onJoinRoom = viewModel::joinStudyRoom,
+                onToggleRoomTicker = viewModel::toggleStudyRoomFocusTicker,
+                onSendCheer = viewModel::sendRoomFocusCheer
+            )
 
-        RegainTab.AI_COACH -> AiCoachInsightsScreen(
-            uiState = uiState,
-            singlePromptPreview = viewModel.buildLiveSinglePromptPreview(),
-            layoutInfo = layoutInfo,
-            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-            onGenerateDailyInsight = { viewModel.generateDailyAiCoachInsight() },
-            onResetQuotaForDemo = viewModel::resetDailyAiQuotaForTesting
-        )
+            RegainTab.AI_COACH -> AiCoachInsightsScreen(
+                uiState = uiState,
+                singlePromptPreview = viewModel.buildLiveSinglePromptPreview(),
+                layoutInfo = layoutInfo,
+                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+                onGenerateDailyInsight = { viewModel.generateDailyAiCoachInsight() },
+                onResetQuotaForDemo = viewModel::resetDailyAiQuotaForTesting
+            )
+        }
     }
 }
 
@@ -625,7 +672,7 @@ private fun AnimatedPopUpNotificationBanner(
     ) {
         val title = popUpAlert?.title ?: "Regain Zen Pop-Up"
         val body = popUpAlert?.message ?: fallbackMessage.orEmpty()
-        val badge = popUpAlert?.badgeText ?: "v1.1"
+        val badge = popUpAlert?.badgeText ?: "v1.2"
         val isWarning = popUpAlert?.isWarning == true
 
         Card(

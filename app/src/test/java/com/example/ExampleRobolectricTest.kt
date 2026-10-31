@@ -13,6 +13,8 @@ import com.example.ui.ActiveTimerUiState
 import com.example.ui.FocusTimerMode
 import com.example.ui.RegainUiState
 import com.example.ui.WindowWidthSizeClass
+import com.example.ui.components.BREAK_DURATION_OPTIONS_MINUTES
+import com.example.ui.components.isBreakOptionGlowing
 import com.example.ui.computeAdaptiveLayoutInfo
 import com.example.ui.formatExactDurationSeconds
 import kotlinx.coroutines.runBlocking
@@ -147,8 +149,38 @@ class ExampleRobolectricTest {
         assertNotNull(youtubeStrictRule)
         assertTrue(youtubeStrictRule?.isStrictLocked == true)
 
+        RegainOverlayWindowManager.clearAllGraceWindows()
         assertFalse(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))
-        RegainOverlayWindowManager.grantFiveMinuteGrace("com.zhiliaoapp.musically")
+        RegainOverlayWindowManager.grantBreakMinutes("com.zhiliaoapp.musically", 15)
         assertTrue(RegainOverlayWindowManager.isPackageInGraceWindow("com.zhiliaoapp.musically"))
+        assertTrue(RegainOverlayWindowManager.getRemainingGraceSeconds("com.zhiliaoapp.musically") > 600)
+    }
+
+    @Test
+    fun `break duration options 5 10 15 30 min only glow when remaining app time is sufficient`() {
+        assertEquals(listOf(5, 10, 15, 30), BREAK_DURATION_OPTIONS_MINUTES)
+
+        // Case 1: 12 minutes left (used 18m out of 30m limit) -> 5m and 10m glow; 15m and 30m do NOT glow
+        assertTrue(isBreakOptionGlowing(optionMinutes = 5, usedMinutes = 18, limitMinutes = 30))
+        assertTrue(isBreakOptionGlowing(optionMinutes = 10, usedMinutes = 18, limitMinutes = 30))
+        assertFalse(isBreakOptionGlowing(optionMinutes = 15, usedMinutes = 18, limitMinutes = 30))
+        assertFalse(isBreakOptionGlowing(optionMinutes = 30, usedMinutes = 18, limitMinutes = 30))
+
+        // Case 2: 30 minutes left (used 0m out of 30m limit) -> All 4 options (5, 10, 15, 30) glow
+        BREAK_DURATION_OPTIONS_MINUTES.forEach { option ->
+            assertTrue(isBreakOptionGlowing(optionMinutes = option, usedMinutes = 0, limitMinutes = 30))
+        }
+
+        // Case 3: Strict Mode locked -> No options glow even if time remains
+        BREAK_DURATION_OPTIONS_MINUTES.forEach { option ->
+            assertFalse(
+                isBreakOptionGlowing(
+                    optionMinutes = option,
+                    usedMinutes = 0,
+                    limitMinutes = 30,
+                    isStrictLocked = true
+                )
+            )
+        }
     }
 }

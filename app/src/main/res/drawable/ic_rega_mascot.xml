@@ -1,55 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="120dp"
-    android:height="120dp"
-    android:viewportWidth="120"
-    android:viewportHeight="120">
-    <!-- Soft Halo Glow -->
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer Sanctuary Shield -->
     <path
-        android:fillColor="#E2E8DD"
-        android:pathData="M60,60m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" />
-    <!-- Sprouting Zen Leaf Stem & Leaves -->
+        android:fillColor="#4E9F76"
+        android:pathData="M12,2L4,5.5v6c0,5.55 3.4,10.74 8,12.5c4.6,-1.76 8,-6.95 8,-12.5v-6L12,2zM18,11.5c0,4.35 -2.55,8.42 -6,9.93c-3.45,-1.51 -6,-5.58 -6,-9.93V6.85l6,-2.62l6,2.62V11.5z" />
+    <!-- Inner Hourglass & Mindful Leaf -->
     <path
-        android:fillColor="#3A5A40"
-        android:pathData="M58,34 C58,20 62,14 62,14 C62,14 64,20 62,34 Z" />
+        android:fillColor="#68B68E"
+        android:pathData="M8.5,7.2h7v1.8l-2.5,2.8l2.5,2.8v1.8h-7v-1.8l2.5,-2.8l-2.5,-2.8V7.2z" />
+    <!-- Long-Wavelength Horizon Spark -->
     <path
-        android:fillColor="#588157"
-        android:pathData="M60,22 C44,10 34,20 44,28 C50,33 58,26 60,22 Z" />
-    <path
-        android:fillColor="#A3B18A"
-        android:pathData="M61,20 C75,8 86,18 76,27 C70,32 63,25 61,20 Z" />
-    <!-- Rega Warm Pebble Spirit Body -->
-    <path
-        android:fillColor="#F7F5F0"
-        android:strokeColor="#3A5A40"
-        android:strokeWidth="3"
-        android:pathData="M30,72 C30,46 42,34 60,34 C78,34 90,46 90,72 C90,92 78,100 60,100 C42,100 30,92 30,72 Z" />
-    <!-- Rosy Terracotta Cheeks -->
-    <path
-        android:fillColor="#E9B8A6"
-        android:pathData="M42,68m-5,0a5,3.5 0,1 1,10 0a5,3.5 0,1 1,-10 0" />
-    <path
-        android:fillColor="#E9B8A6"
-        android:pathData="M78,68m-5,0a5,3.5 0,1 1,10 0a5,3.5 0,1 1,-10 0" />
-    <!-- Happy Zen Closed Eyes -->
-    <path
-        android:strokeColor="#283618"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M43,60 Q48,55 53,60" />
-    <path
-        android:strokeColor="#283618"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M67,60 Q72,55 77,60" />
-    <!-- Peaceful Smile -->
-    <path
-        android:strokeColor="#283618"
-        android:strokeWidth="2.8"
-        android:strokeLineCap="round"
-        android:pathData="M55,67 Q60,72 65,67" />
-    <!-- Golden Mini Hourglass Badge on Chest -->
-    <path
-        android:fillColor="#D47A55"
-        android:pathData="M54,79 L66,79 L62,85 L66,91 L54,91 L58,85 Z" />
+        android:fillColor="#E0533C"
+        android:pathData="M12,13.6c0.83,0 1.5,0.67 1.5,1.5s-0.67,1.5 -1.5,1.5s-1.5,-0.67 -1.5,-1.5S11.17,13.6 12,13.6z" />
 </vector>

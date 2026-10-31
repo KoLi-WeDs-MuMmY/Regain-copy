@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -63,9 +62,14 @@ val ZenShapes = Shapes(
     extraLarge = RoundedCornerShape(32.dp)
 )
 
+/**
+ * Defaults to the Nocturnal Ocular Sanctuary dark theme (deeply muted shadowy canvas with
+ * elevated panels, softened low-glare reading text, mid-spectrum calming study highlights,
+ * and long-wavelength interception alerts).
+ */
 @Composable
 fun RegainZenTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) ZenDarkColorScheme else ZenLightColorScheme
