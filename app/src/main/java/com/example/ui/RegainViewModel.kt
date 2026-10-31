@@ -87,18 +87,57 @@ data class MindfulInterceptState(
     val packageName: String = "com.regainzen.preview"
 )
 
+data class FocusTaskItem(
+    val id: String,
+    val title: String,
+    val durationMinutes: Int,
+    val isCompleted: Boolean = false,
+    val isActive: Boolean = false
+)
+
+fun defaultFocusTasks(): List<FocusTaskItem> = listOf(
+    FocusTaskItem(
+        id = "task_1",
+        title = "System Wireframes Draft",
+        durationMinutes = 25,
+        isCompleted = true,
+        isActive = false
+    ),
+    FocusTaskItem(
+        id = "task_2",
+        title = "Design Review with Martin",
+        durationMinutes = 25,
+        isCompleted = false,
+        isActive = true
+    ),
+    FocusTaskItem(
+        id = "task_3",
+        title = "Documentation & Handover specs",
+        durationMinutes = 50,
+        isCompleted = false,
+        isActive = false
+    )
+)
+
 data class ActiveTimerUiState(
     val mode: FocusTimerMode = FocusTimerMode.POMODORO_25,
-    val customCountdownMinutes: Int = 30,
-    val selectedTag: String = "Deep Study",
+    val customCountdownMinutes: Int = 25,
+    val focusDurationMinutes: Int = 25,
+    val shortBreakMinutes: Int = 5,
+    val longBreakMinutes: Int = 15,
+    val currentRound: Int = 3,
+    val totalRounds: Int = 4,
+    val activeSprintTitle: String = "DESIGN ARCHITECTURE • SPRINT 3",
+    val selectedTag: String = "Design Review with Martin",
     val isRunning: Boolean = false,
     val isBreakPhase: Boolean = false,
     val elapsedSeconds: Int = 0,
     val totalTargetSeconds: Int = 25 * 60,
     val strictFocusLock: Boolean = true,
     val selectedSound: AmbientSoundPreset = AmbientSoundPreset.ZEN_RAIN,
-    val soundVolume: Float = 0.5f,
-    val isSoundPlayingPreview: Boolean = false
+    val soundVolume: Float = 0.65f,
+    val isSoundPlayingPreview: Boolean = false,
+    val tasks: List<FocusTaskItem> = defaultFocusTasks()
 ) {
     val exactElapsedFormatted: String
         get() = formatExactDurationSeconds(elapsedSeconds)
@@ -364,22 +403,42 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
-    // --- FOCUS & POMODORO TIMER (RECORDS EXACT TIME STUDIED) ---
+    // --- FOCUS & POMODORO TIMER (RECORDS EXACT TIME STUDIED + AUTO-ADVANCES BREAKS) ---
 
     fun selectTimerMode(mode: FocusTimerMode) {
         if (_timerState.value.isRunning) return
+        val s = _timerState.value
+        val nextFocusMinutes = when (mode) {
+            FocusTimerMode.POMODORO_25 -> 25
+            FocusTimerMode.POMODORO_50 -> 50
+            FocusTimerMode.COUNTDOWN -> s.customCountdownMinutes
+            FocusTimerMode.STOPWATCH -> s.focusDurationMinutes
+        }
         val targetSeconds = when (mode) {
             FocusTimerMode.POMODORO_25 -> 25 * 60
             FocusTimerMode.POMODORO_50 -> 50 * 60
-            FocusTimerMode.COUNTDOWN -> _timerState.value.customCountdownMinutes * 60
+            FocusTimerMode.COUNTDOWN -> s.customCountdownMinutes * 60
             FocusTimerMode.STOPWATCH -> 0
         }
         _timerState.update {
             it.copy(
                 mode = mode,
+                focusDurationMinutes = nextFocusMinutes,
                 isBreakPhase = false,
                 elapsedSeconds = 0,
                 totalTargetSeconds = targetSeconds
+            )
+        }
+    }
+
+    fun selectShortRestMode() {
+        if (_timerState.value.isRunning) return
+        val s = _timerState.value
+        _timerState.update {
+            it.copy(
+                isBreakPhase = true,
+                elapsedSeconds = 0,
+                totalTargetSeconds = s.shortBreakMinutes.coerceAtLeast(1) * 60
             )
         }
     }
@@ -391,14 +450,111 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             it.copy(
                 mode = FocusTimerMode.COUNTDOWN,
                 customCountdownMinutes = clamped,
+                focusDurationMinutes = clamped,
+                isBreakPhase = false,
                 elapsedSeconds = 0,
                 totalTargetSeconds = clamped * 60
             )
         }
     }
 
+    fun updatePomodoroConfiguration(
+        focusMinutes: Int,
+        shortBreakMinutes: Int,
+        longBreakMinutes: Int,
+        totalRounds: Int,
+        sprintTitle: String
+    ) {
+        val clampedFocus = focusMinutes.coerceIn(5, 120)
+        val clampedShort = shortBreakMinutes.coerceIn(1, 30)
+        val clampedLong = longBreakMinutes.coerceIn(5, 60)
+        val clampedRounds = totalRounds.coerceIn(2, 8)
+        val cleanTitle = sprintTitle.trim().ifBlank { "DESIGN ARCHITECTURE • SPRINT 3" }
+
+        _timerState.update { current ->
+            val newTarget = if (current.isRunning) {
+                current.totalTargetSeconds
+            } else if (current.isBreakPhase) {
+                clampedShort * 60
+            } else {
+                clampedFocus * 60
+            }
+            val nextMode = when (clampedFocus) {
+                25 -> FocusTimerMode.POMODORO_25
+                50 -> FocusTimerMode.POMODORO_50
+                else -> FocusTimerMode.COUNTDOWN
+            }
+            current.copy(
+                mode = if (current.mode == FocusTimerMode.STOPWATCH) FocusTimerMode.STOPWATCH else nextMode,
+                customCountdownMinutes = clampedFocus,
+                focusDurationMinutes = clampedFocus,
+                shortBreakMinutes = clampedShort,
+                longBreakMinutes = clampedLong,
+                totalRounds = clampedRounds,
+                currentRound = current.currentRound.coerceIn(1, clampedRounds),
+                activeSprintTitle = cleanTitle.uppercase(Locale.US),
+                elapsedSeconds = if (current.isRunning) current.elapsedSeconds else 0,
+                totalTargetSeconds = newTarget
+            )
+        }
+
+        postBanner(
+            message = "Updated Pomodoro cycle: ${clampedFocus}m Focus • ${clampedShort}m Short Break • ${clampedLong}m Long Break ($clampedRounds rounds).",
+            title = "Pomodoro Cycle Configured",
+            badgeText = "${clampedFocus}m / ${clampedShort}m"
+        )
+    }
+
     fun selectFocusTag(tag: String) {
-        _timerState.update { it.copy(selectedTag = tag) }
+        _timerState.update { state ->
+            val updatedTasks = state.tasks.map { task ->
+                task.copy(isActive = task.title.equals(tag, ignoreCase = true))
+            }
+            state.copy(
+                selectedTag = tag,
+                activeSprintTitle = "${tag.uppercase(Locale.US)} • SPRINT ${state.currentRound}",
+                tasks = updatedTasks
+            )
+        }
+    }
+
+    fun toggleTaskCompleted(taskId: String) {
+        _timerState.update { state ->
+            val updated = state.tasks.map { task ->
+                if (task.id == taskId) task.copy(isCompleted = !task.isCompleted) else task
+            }
+            state.copy(tasks = updated)
+        }
+    }
+
+    fun selectActiveTask(taskId: String) {
+        _timerState.update { state ->
+            val targetTask = state.tasks.find { it.id == taskId } ?: return@update state
+            val updated = state.tasks.map { task ->
+                task.copy(isActive = task.id == taskId)
+            }
+            state.copy(
+                selectedTag = targetTask.title,
+                activeSprintTitle = "${targetTask.title.uppercase(Locale.US)} • SPRINT ${state.currentRound}",
+                tasks = updated
+            )
+        }
+    }
+
+    fun addFocusTask(title: String, durationMinutes: Int) {
+        val clean = title.trim()
+        if (clean.isBlank()) return
+        val clampedMins = durationMinutes.coerceIn(5, 120)
+        _timerState.update { state ->
+            val newTask = FocusTaskItem(
+                id = "task_${System.currentTimeMillis()}",
+                title = clean,
+                durationMinutes = clampedMins,
+                isCompleted = false,
+                isActive = state.tasks.none { it.isActive }
+            )
+            state.copy(tasks = state.tasks + newTask)
+        }
     }
 
     fun toggleStrictFocusLock(enabled: Boolean) {
@@ -415,6 +571,20 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 soundEngine.startOrSwitch(preset)
             }
         }
+    }
+
+    fun cycleAmbientSound(forward: Boolean) {
+        val playablePresets = AmbientSoundPreset.entries.filter { it != AmbientSoundPreset.NONE }
+        if (playablePresets.isEmpty()) return
+        val current = _timerState.value.selectedSound
+        val currentIdx = playablePresets.indexOf(current).let { if (it < 0) 0 else it }
+        val nextIdx = if (forward) {
+            (currentIdx + 1) % playablePresets.size
+        } else {
+            (currentIdx - 1 + playablePresets.size) % playablePresets.size
+        }
+        val nextPreset = playablePresets[nextIdx]
+        selectAmbientSound(nextPreset)
     }
 
     fun updateSoundVolume(volume: Float) {
@@ -452,21 +622,91 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             if (current.selectedSound != AmbientSoundPreset.NONE) {
                 soundEngine.startOrSwitch(current.selectedSound)
             }
-            timerJob?.cancel()
-            timerJob = viewModelScope.launch {
-                while (isActive && _timerState.value.isRunning) {
-                    delay(1000L)
-                    val s = _timerState.value
-                    val nextElapsed = s.elapsedSeconds + 1
-                    if (s.mode != FocusTimerMode.STOPWATCH && nextElapsed >= s.totalTargetSeconds) {
-                        _timerState.update { it.copy(elapsedSeconds = s.totalTargetSeconds) }
-                        completeCurrentFocusSession()
-                        break
-                    } else {
-                        _timerState.update { it.copy(elapsedSeconds = nextElapsed) }
-                    }
+            startTimerTickerLoop()
+        }
+    }
+
+    private fun startTimerTickerLoop() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (isActive && _timerState.value.isRunning) {
+                delay(1000L)
+                val s = _timerState.value
+                val nextElapsed = s.elapsedSeconds + 1
+                if (s.mode != FocusTimerMode.STOPWATCH && nextElapsed >= s.totalTargetSeconds) {
+                    _timerState.update { it.copy(elapsedSeconds = s.totalTargetSeconds) }
+                    handlePomodoroPhaseCompletedAutoAdvance()
+                } else {
+                    _timerState.update { it.copy(elapsedSeconds = nextElapsed) }
                 }
             }
+        }
+    }
+
+    private fun handlePomodoroPhaseCompletedAutoAdvance() {
+        val s = _timerState.value
+        if (!s.isBreakPhase) {
+            // Focus round finished -> Save exact studied seconds & auto-advance into Short or Long Break
+            val exactStudiedSeconds = s.elapsedSeconds.coerceAtLeast(1)
+            persistCompletedFocusSessionAsync(
+                selectedTag = s.selectedTag,
+                mode = s.mode,
+                selectedSound = s.selectedSound,
+                exactStudiedSeconds = exactStudiedSeconds
+            )
+
+            val isLongBreakNext = s.currentRound >= s.totalRounds
+            val breakMinutes = if (isLongBreakNext) s.longBreakMinutes else s.shortBreakMinutes
+            val breakTypeLabel = if (isLongBreakNext) "Long Break" else "Short Break"
+
+            _timerState.update {
+                it.copy(
+                    isRunning = true,
+                    isBreakPhase = true,
+                    elapsedSeconds = 0,
+                    totalTargetSeconds = breakMinutes.coerceAtLeast(1) * 60
+                )
+            }
+
+            val notifTitle = "Break Time! ($breakMinutes min $breakTypeLabel)"
+            val notifBody = "Round ${s.currentRound} of ${s.totalRounds} complete! Take a ${breakMinutes}m restorative break before Round ${if (isLongBreakNext) 1 else s.currentRound + 1}."
+            RegainNotificationHelper.sendPomodoroBreakNotification(
+                context = appContext,
+                title = notifTitle,
+                body = notifBody
+            )
+            postBanner(
+                message = notifBody,
+                title = notifTitle,
+                badgeText = "Round ${s.currentRound}/${s.totalRounds}"
+            )
+        } else {
+            // Break phase finished -> Auto-advance into next Focus Round and notify user
+            val nextRound = if (s.currentRound >= s.totalRounds) 1 else s.currentRound + 1
+            val focusMins = s.focusDurationMinutes.coerceAtLeast(5)
+
+            _timerState.update {
+                it.copy(
+                    isRunning = true,
+                    isBreakPhase = false,
+                    currentRound = nextRound,
+                    elapsedSeconds = 0,
+                    totalTargetSeconds = focusMins * 60
+                )
+            }
+
+            val notifTitle = "Break Over • Round $nextRound of ${s.totalRounds} Started"
+            val notifBody = "Restorative break complete. Auto-advancing into ${focusMins}m Deep Flow (${s.selectedTag})."
+            RegainNotificationHelper.sendPomodoroBreakNotification(
+                context = appContext,
+                title = notifTitle,
+                body = notifBody
+            )
+            postBanner(
+                message = notifBody,
+                title = notifTitle,
+                badgeText = "Round $nextRound/${s.totalRounds}"
+            )
         }
     }
 
@@ -474,10 +714,16 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         timerJob?.cancel()
         soundEngine.stop()
         _timerState.update {
+            val resetTarget = if (it.mode == FocusTimerMode.STOPWATCH) {
+                0
+            } else {
+                it.focusDurationMinutes.coerceAtLeast(5) * 60
+            }
             it.copy(
                 isRunning = false,
                 isBreakPhase = false,
                 elapsedSeconds = 0,
+                totalTargetSeconds = resetTarget,
                 isSoundPlayingPreview = false
             )
         }
@@ -502,27 +748,50 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         timerJob?.cancel()
         soundEngine.stop()
 
-        val exactMinutesFloor = exactStudiedSeconds / 60
-        val exactFormatted = formatExactDurationSeconds(exactStudiedSeconds)
-        val coins = (exactStudiedSeconds / 60).coerceAtLeast(1)
-
         _timerState.update {
             it.copy(
                 isRunning = false,
+                isBreakPhase = false,
                 elapsedSeconds = 0,
                 isSoundPlayingPreview = false
             )
         }
 
+        if (!s.isBreakPhase) {
+            persistCompletedFocusSessionAsync(
+                selectedTag = s.selectedTag,
+                mode = s.mode,
+                selectedSound = s.selectedSound,
+                exactStudiedSeconds = exactStudiedSeconds
+            )
+        } else {
+            postBanner(
+                message = "Ended break early. Ready for Round ${(s.currentRound % s.totalRounds) + 1} of ${s.totalRounds}.",
+                title = "Break Ended",
+                badgeText = "Pomodoro"
+            )
+        }
+    }
+
+    private fun persistCompletedFocusSessionAsync(
+        selectedTag: String,
+        mode: FocusTimerMode,
+        selectedSound: AmbientSoundPreset,
+        exactStudiedSeconds: Int
+    ) {
+        val exactMinutesFloor = exactStudiedSeconds / 60
+        val exactFormatted = formatExactDurationSeconds(exactStudiedSeconds)
+        val coins = (exactStudiedSeconds / 60).coerceAtLeast(1)
+
         viewModelScope.launch {
             repository.insertFocusSession(
                 FocusSessionEntity(
-                    title = "${s.selectedTag} (${s.mode.label})",
-                    tag = s.selectedTag,
-                    mode = s.mode.name,
+                    title = "$selectedTag (${mode.label})",
+                    tag = selectedTag,
+                    mode = mode.name,
                     durationMinutes = exactMinutesFloor,
                     durationSeconds = exactStudiedSeconds,
-                    ambientSound = s.selectedSound.title,
+                    ambientSound = selectedSound.title,
                     coinsEarned = coins
                 )
             )
@@ -554,13 +823,13 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
 
             RegainNotificationHelper.sendStudySessionCompletedNotification(
                 context = appContext,
-                tag = s.selectedTag,
+                tag = selectedTag,
                 exactDurationFormatted = exactFormatted,
                 coinsEarned = coins
             )
 
             postBanner(
-                message = "Recorded exact study time: $exactFormatted of ${s.selectedTag}! Rega earned +$coins Leaf Coins.",
+                message = "Recorded exact study time: $exactFormatted of $selectedTag! Rega earned +$coins Leaf Coins.",
                 title = "Exact Study Time Saved: $exactFormatted",
                 badgeText = "+$coins Leaf Coins"
             )
@@ -1043,6 +1312,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             _isGeneratingAi.value = true
             try {
                 val userKey = state.userProgress.customGeminiApiKey.ifBlank { "" }
+                val providerId = state.userProgress.aiProvider
                 delay(450L)
                 val insight = aiCoach.generateDailyCappedInsight(
                     dateKey = state.todayDateKey,
@@ -1051,11 +1321,12 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     sessions = state.focusSessions,
                     progress = state.userProgress,
                     preferOnlineGeminiIfKeyPresent = userKey.isNotBlank(),
-                    optionalApiKey = userKey
+                    optionalApiKey = userKey,
+                    providerId = providerId
                 )
                 repository.upsertAiInsight(insight)
                 postBanner(
-                    message = "Generated today's personalized AI Coaching Insight (1/1 Daily Quota Used).",
+                    message = "Generated today's personalized AI Coaching Insight (${insight.sourceMode}).",
                     title = "AI Coach Insight Ready",
                     badgeText = "1/1 Quota Used"
                 )
@@ -1070,13 +1341,31 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateCustomGeminiApiKey(key: String) {
+        updateAiProviderAndKey(
+            providerId = uiState.value.userProgress.aiProvider,
+            key = key
+        )
+    }
+
+    fun updateAiProviderAndKey(providerId: String, key: String) {
         viewModelScope.launch {
+            val cleanKey = key.trim()
+            val resolvedProvider = com.example.ai.AiProvider.resolveEffectiveProvider(providerId, cleanKey)
             val progress = uiState.value.userProgress
-            repository.upsertUserProgress(progress.copy(customGeminiApiKey = key.trim()))
+            repository.upsertUserProgress(
+                progress.copy(
+                    customGeminiApiKey = cleanKey,
+                    aiProvider = resolvedProvider.id
+                )
+            )
             postBanner(
-                message = if (key.isBlank()) "Removed custom Gemini API key." else "Custom Gemini API key updated and saved locally.",
-                title = "API Key Updated",
-                badgeText = "AI Coach Settings"
+                message = if (cleanKey.isBlank()) {
+                    "Cleared API key. Using 100% Offline Zen Heuristic Engine."
+                } else {
+                    "Saved ${resolvedProvider.displayName} API key locally on device."
+                },
+                title = "${resolvedProvider.displayName} Active",
+                badgeText = resolvedProvider.badgeLabel
             )
         }
     }
@@ -1089,13 +1378,15 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         if (text.isBlank()) return
         val current = _aiCoachState.value
         if (current.isSendingChat) return
-        
-        val userKey = uiState.value.userProgress.customGeminiApiKey
+
+        val progress = uiState.value.userProgress
+        val userKey = progress.customGeminiApiKey
+        val provider = com.example.ai.AiProvider.resolveEffectiveProvider(progress.aiProvider, userKey)
         if (userKey.isBlank()) {
             postBanner(
-                message = "Please configure your custom Gemini API key in the AI Coach settings to enable full chat.",
-                title = "API Key Required",
-                badgeText = "Chat Disabled",
+                message = "Configure a free Groq, OpenRouter, or Gemini API key in AI Settings to chat with Rega.",
+                title = "Free API Key Required",
+                badgeText = "Groq / OpenRouter / Gemini",
                 isWarning = true
             )
             _aiCoachState.update { it.copy(showApiKeyDialog = true) }
@@ -1103,7 +1394,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         val newUserMsg = com.example.ai.ChatMessage(role = "user", text = text)
-        _aiCoachState.update { 
+        _aiCoachState.update {
             it.copy(
                 chatHistory = it.chatHistory + newUserMsg,
                 isSendingChat = true
@@ -1115,10 +1406,11 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 val response = geminiService.chat(
                     apiKey = userKey,
                     history = current.chatHistory,
-                    userMessage = text
+                    userMessage = text,
+                    providerId = provider.id
                 )
                 if (response != null) {
-                    _aiCoachState.update { 
+                    _aiCoachState.update {
                         it.copy(
                             chatHistory = it.chatHistory + com.example.ai.ChatMessage(role = "model", text = response),
                             isSendingChat = false
@@ -1127,13 +1419,13 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     _aiCoachState.update { it.copy(isSendingChat = false) }
                     postBanner(
-                        message = "Failed to reach Rega AI. Please check your API key and internet connection.",
-                        title = "AI Response Failed",
-                        badgeText = "Network Error",
+                        message = "Could not reach ${provider.displayName}. Verify your API key (${provider.keyPrefixHint}) or switch to Groq/OpenRouter free tier.",
+                        title = "${provider.displayName} Error",
+                        badgeText = "Check API Key",
                         isWarning = true
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _aiCoachState.update { it.copy(isSendingChat = false) }
             }
         }

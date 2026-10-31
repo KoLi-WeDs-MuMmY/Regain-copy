@@ -73,6 +73,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -468,10 +469,12 @@ private fun ObsidianTopAppBar(
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = ObsidianSurfaceCard,
-                modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(8.dp))
+                modifier = Modifier
+                    .shadow(4.dp, RoundedCornerShape(8.dp), clip = false)
+                    .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(8.dp))
             ) {
                 Text(
-                    text = "V1.3.1",
+                    text = "V1.3.2",
                     style = MaterialTheme.typography.labelSmall,
                     color = MutedSlate,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -631,10 +634,16 @@ private fun RegainScreenContent(
             layoutInfo = layoutInfo,
             onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
             onSelectMode = viewModel::selectTimerMode,
+            onSelectShortRest = viewModel::selectShortRestMode,
             onUpdateCustomMinutes = viewModel::updateCustomCountdownMinutes,
+            onUpdatePomodoroConfig = viewModel::updatePomodoroConfiguration,
             onSelectTag = viewModel::selectFocusTag,
+            onToggleTaskCompleted = viewModel::toggleTaskCompleted,
+            onSelectActiveTask = viewModel::selectActiveTask,
+            onAddFocusTask = viewModel::addFocusTask,
             onToggleStrictLock = viewModel::toggleStrictFocusLock,
             onSelectAmbientSound = viewModel::selectAmbientSound,
+            onCycleAmbientSound = viewModel::cycleAmbientSound,
             onUpdateVolume = viewModel::updateSoundVolume,
             onToggleSoundPreview = viewModel::toggleAmbientPreview,
             onToggleStartPause = viewModel::toggleStartPauseFocusTimer,
@@ -714,6 +723,7 @@ private fun RegainScreenContent(
             onSetMode = viewModel::setAiCoachMode,
             onSendChatMessage = viewModel::sendAiChatMessage,
             onUpdateApiKey = viewModel::updateCustomGeminiApiKey,
+            onUpdateProviderAndKey = viewModel::updateAiProviderAndKey,
             onToggleApiKeyDialog = viewModel::setShowApiKeyDialog
         )
     }

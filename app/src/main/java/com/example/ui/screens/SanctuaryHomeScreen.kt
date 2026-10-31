@@ -459,9 +459,14 @@ private fun ObsidianQuestCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = if (isPrimaryAlignment) 12.dp else 8.dp,
+                shape = RoundedCornerShape(22.dp),
+                clip = false
+            )
             .border(
                 width = 1.dp,
-                color = if (quest.isCompleted) CelestialOpal.copy(alpha = 0.25f) else ObsidianHairlineBorder,
+                color = if (quest.isCompleted) CelestialOpal.copy(alpha = 0.28f) else ObsidianHairlineBorder,
                 shape = RoundedCornerShape(22.dp)
             ),
         shape = RoundedCornerShape(22.dp),

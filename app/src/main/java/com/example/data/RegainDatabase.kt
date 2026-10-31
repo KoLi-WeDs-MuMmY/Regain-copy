@@ -94,7 +94,8 @@ data class UserProgressEntity(
     val mindfulBreathsCompleted: Int = 0,
     val strictModeGlobal: Boolean = false,
     val strictPassphrase: String = "I choose mindful presence",
-    val customGeminiApiKey: String = ""
+    val customGeminiApiKey: String = "",
+    val aiProvider: String = "GROQ"
 )
 
 data class AiCoachInsightEntity(
@@ -144,7 +145,7 @@ interface RegainDao {
 }
 
 class RegainDatabase private constructor(private val appContext: Context) :
-    SQLiteOpenHelper(appContext, "regain_zen_offline_v11.db", null, 3),
+    SQLiteOpenHelper(appContext, "regain_zen_offline_v11.db", null, 4),
     RegainDao {
 
     private val appLimitsFlow = MutableStateFlow<List<AppLimitEntity>>(emptyList())
@@ -249,7 +250,8 @@ class RegainDatabase private constructor(private val appContext: Context) :
                 mindfulBreathsCompleted INTEGER NOT NULL,
                 strictModeGlobal INTEGER NOT NULL,
                 strictPassphrase TEXT NOT NULL,
-                customGeminiApiKey TEXT NOT NULL DEFAULT ''
+                customGeminiApiKey TEXT NOT NULL DEFAULT '',
+                aiProvider TEXT NOT NULL DEFAULT 'GROQ'
             )
             """.trimIndent()
         )
@@ -284,6 +286,10 @@ class RegainDatabase private constructor(private val appContext: Context) :
         }
         try {
             db.execSQL("ALTER TABLE user_progress ADD COLUMN customGeminiApiKey TEXT NOT NULL DEFAULT ''")
+        } catch (_: Exception) {
+        }
+        try {
+            db.execSQL("ALTER TABLE user_progress ADD COLUMN aiProvider TEXT NOT NULL DEFAULT 'GROQ'")
         } catch (_: Exception) {
         }
     }
@@ -534,6 +540,7 @@ class RegainDatabase private constructor(private val appContext: Context) :
         db.rawQuery("SELECT * FROM user_progress WHERE id = 1 LIMIT 1", null).use { c ->
             if (c.moveToFirst()) {
                 val apiKeyCol = c.getColumnIndex("customGeminiApiKey")
+                val providerCol = c.getColumnIndex("aiProvider")
                 return UserProgressEntity(
                     id = c.getInt(c.getColumnIndexOrThrow("id")),
                     regaLevel = c.getInt(c.getColumnIndexOrThrow("regaLevel")),
@@ -545,7 +552,8 @@ class RegainDatabase private constructor(private val appContext: Context) :
                     mindfulBreathsCompleted = c.getInt(c.getColumnIndexOrThrow("mindfulBreathsCompleted")),
                     strictModeGlobal = c.getInt(c.getColumnIndexOrThrow("strictModeGlobal")) != 0,
                     strictPassphrase = c.getString(c.getColumnIndexOrThrow("strictPassphrase")),
-                    customGeminiApiKey = if (apiKeyCol >= 0) c.getString(apiKeyCol).orEmpty() else ""
+                    customGeminiApiKey = if (apiKeyCol >= 0) c.getString(apiKeyCol).orEmpty() else "",
+                    aiProvider = if (providerCol >= 0) c.getString(providerCol).orEmpty().ifBlank { "GROQ" } else "GROQ"
                 )
             }
         }
@@ -819,6 +827,7 @@ private fun UserProgressEntity.toContentValues() = ContentValues().apply {
     put("strictModeGlobal", if (strictModeGlobal) 1 else 0)
     put("strictPassphrase", strictPassphrase)
     put("customGeminiApiKey", customGeminiApiKey)
+    put("aiProvider", aiProvider)
 }
 
 private fun AiCoachInsightEntity.toContentValues() = ContentValues().apply {

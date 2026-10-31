@@ -168,4 +168,39 @@ object RegainNotificationHelper {
         } catch (_: SecurityException) {
         }
     }
+
+    fun sendPomodoroBreakNotification(
+        context: Context,
+        title: String,
+        body: String
+    ) {
+        ensureChannelsCreated(context)
+        if (!hasNotificationPermission(context)) return
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            3005,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_FOCUS_TIMER)
+            .setSmallIcon(R.drawable.ic_rega_mascot)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(3005, notification)
+        } catch (_: SecurityException) {
+        }
+    }
 }

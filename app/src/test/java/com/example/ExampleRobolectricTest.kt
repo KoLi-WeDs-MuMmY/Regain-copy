@@ -183,4 +183,36 @@ class ExampleRobolectricTest {
             )
         }
     }
+
+    @Test
+    fun `v1_3_2 multi provider ai resolves groq openrouter and gemini keys`() {
+        assertEquals(
+            com.example.ai.AiProvider.GROQ,
+            com.example.ai.AiProvider.resolveEffectiveProvider("GEMINI", "gsk_free_key_12345")
+        )
+        assertEquals(
+            com.example.ai.AiProvider.OPENROUTER,
+            com.example.ai.AiProvider.resolveEffectiveProvider("GROQ", "sk-or-v1-abc123")
+        )
+        assertEquals(
+            com.example.ai.AiProvider.GEMINI,
+            com.example.ai.AiProvider.resolveEffectiveProvider("GROQ", "AIzaSyTestGeminiKey")
+        )
+        assertEquals(
+            com.example.ai.AiProvider.OPENROUTER,
+            com.example.ai.AiProvider.resolveEffectiveProvider("OPENROUTER", "custom_token")
+        )
+    }
+
+    @Test
+    fun `v1_3_2 customizable pomodoro state and task checklist initialize accurately`() {
+        val timerState = ActiveTimerUiState()
+        assertEquals(25, timerState.focusDurationMinutes)
+        assertEquals(5, timerState.shortBreakMinutes)
+        assertEquals(15, timerState.longBreakMinutes)
+        assertEquals(4, timerState.totalRounds)
+        assertEquals(3, timerState.tasks.size)
+        assertEquals(1, timerState.tasks.count { it.isCompleted })
+        assertTrue(timerState.tasks.any { it.isActive && it.title == "Design Review with Martin" })
+    }
 }

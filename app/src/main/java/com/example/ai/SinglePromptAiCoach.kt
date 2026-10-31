@@ -17,11 +17,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * SinglePromptAiCoach enforces a strict hard cap of AT MOST 1 prompt request per calendar day
- * so the user never exceeds Google's free API key rate limits.
- *
- * By default, it runs 100% offline using the deterministic On-Device Zen Heuristic Engine
- * (matching the offline-first architecture), and if an optional Gemini API key is configured,
- * executes at most ONE single consolidated JSON prompt per day and caches the result in Room.
+ * for the daily synthesis card, and supports free-tier keys from Groq, OpenRouter, and Google Gemini
+ * with an automatic 100% offline fallback to the On-Device Zen Heuristic Engine.
  */
 class SinglePromptAiCoach {
 
@@ -63,17 +60,43 @@ class SinglePromptAiCoach {
         sessions: List<FocusSessionEntity>,
         progress: UserProgressEntity,
         preferOnlineGeminiIfKeyPresent: Boolean = false,
-        optionalApiKey: String = ""
+        optionalApiKey: String = "",
+        providerId: String = progress.aiProvider
     ): AiCoachInsightEntity = withContext(Dispatchers.IO) {
         val consolidatedPrompt = buildSingleConsolidatedPrompt(apps, shields, sessions, progress)
+        val cleanKey = optionalApiKey.trim()
 
-        if (preferOnlineGeminiIfKeyPresent && optionalApiKey.isNotBlank() && optionalApiKey != "MY_GEMINI_API_KEY") {
+        if (preferOnlineGeminiIfKeyPresent && cleanKey.isNotBlank() && cleanKey != "MY_GEMINI_API_KEY") {
             try {
-                val onlineResult = callSingleGeminiRequest(
-                    apiKey = optionalApiKey,
-                    dateKey = dateKey,
-                    prompt = consolidatedPrompt
-                )
+                val provider = AiProvider.resolveEffectiveProvider(providerId, cleanKey)
+                val onlineResult = when (provider) {
+                    AiProvider.GROQ -> callOpenAiCompatibleInsight(
+                        endpoint = "https://api.groq.com/openai/v1/chat/completions",
+                        apiKey = cleanKey,
+                        models = listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
+                        dateKey = dateKey,
+                        prompt = consolidatedPrompt,
+                        sourceLabel = "GROQ_FREE_TIER",
+                        isOpenRouter = false
+                    )
+                    AiProvider.OPENROUTER -> callOpenAiCompatibleInsight(
+                        endpoint = "https://openrouter.ai/api/v1/chat/completions",
+                        apiKey = cleanKey,
+                        models = listOf(
+                            "meta-llama/llama-3.3-70b-instruct:free",
+                            "google/gemma-3-27b-it:free"
+                        ),
+                        dateKey = dateKey,
+                        prompt = consolidatedPrompt,
+                        sourceLabel = "OPENROUTER_FREE_TIER",
+                        isOpenRouter = true
+                    )
+                    AiProvider.GEMINI -> callSingleGeminiRequest(
+                        apiKey = cleanKey,
+                        dateKey = dateKey,
+                        prompt = consolidatedPrompt
+                    )
+                }
                 if (onlineResult != null) {
                     return@withContext onlineResult
                 }
@@ -90,6 +113,89 @@ class SinglePromptAiCoach {
             progress = progress,
             consolidatedPrompt = consolidatedPrompt
         )
+    }
+
+    private fun callOpenAiCompatibleInsight(
+        endpoint: String,
+        apiKey: String,
+        models: List<String>,
+        dateKey: String,
+        prompt: String,
+        sourceLabel: String,
+        isOpenRouter: Boolean
+    ): AiCoachInsightEntity? {
+        for (model in models) {
+            val payload = JSONObject().apply {
+                put("model", model)
+                put(
+                    "messages",
+                    JSONArray().apply {
+                        put(
+                            JSONObject().apply {
+                                put("role", "system")
+                                put("content", "You are a JSON-only digital wellbeing engine. Output a single valid JSON object only without markdown fences.")
+                            }
+                        )
+                        put(
+                            JSONObject().apply {
+                                put("role", "user")
+                                put("content", prompt)
+                            }
+                        )
+                    }
+                )
+                put("max_tokens", 350)
+                put("temperature", 0.3)
+            }
+
+            val bodyBytes = payload.toString().toRequestBody("application/json".toMediaType())
+            val reqBuilder = Request.Builder()
+                .url(endpoint)
+                .header("Authorization", "Bearer $apiKey")
+                .header("Content-Type", "application/json")
+                .post(bodyBytes)
+
+            if (isOpenRouter) {
+                reqBuilder.header("HTTP-Referer", "https://regainzen.app")
+                reqBuilder.header("X-Title", "Regain Zen")
+            }
+
+            val result = runCatching {
+                httpClient.newCall(reqBuilder.build()).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val bodyStr = response.body?.string() ?: return@use null
+                    val root = JSONObject(bodyStr)
+                    val rawText = root.optJSONArray("choices")
+                        ?.optJSONObject(0)
+                        ?.optJSONObject("message")
+                        ?.optString("content") ?: return@use null
+
+                    val cleanJsonText = extractJsonObjectString(rawText)
+                    val parsed = JSONObject(cleanJsonText)
+                    AiCoachInsightEntity(
+                        dateKey = dateKey,
+                        requestsUsedToday = 1,
+                        coachHeadline = parsed.optString("coachHeadline", "Your mindful boundaries are protecting your best hours."),
+                        habitBottleneck = parsed.optString("habitBottleneck", "High impulse pickups during afternoon transitions."),
+                        timeSavedProjectionMinutes = parsed.optInt("timeSavedProjectionMinutes", 85),
+                        microChallenge1 = parsed.optString("microChallenge1", "Enable Strict Mode during your next 25m Pomodoro."),
+                        microChallenge2 = parsed.optString("microChallenge2", "Keep Instagram & YouTube in DM/Search-only Shield mode after 9 PM."),
+                        microChallenge3 = parsed.optString("microChallenge3", "Take 3 slow 4-4-4 breaths whenever a feed block appears."),
+                        promptUsedPreview = prompt,
+                        sourceMode = sourceLabel
+                    )
+                }
+            }.getOrNull()
+
+            if (result != null) return result
+        }
+        return null
+    }
+
+    private fun extractJsonObjectString(raw: String): String {
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        return if (start >= 0 && end > start) raw.substring(start, end + 1) else raw.trim()
     }
 
     private fun callSingleGeminiRequest(
@@ -139,7 +245,7 @@ class SinglePromptAiCoach {
                         ?.optJSONObject(0)
                         ?.optString("text") ?: return@use null
 
-                    val parsed = JSONObject(text)
+                    val parsed = JSONObject(extractJsonObjectString(text))
                     AiCoachInsightEntity(
                         dateKey = dateKey,
                         requestsUsedToday = 1,

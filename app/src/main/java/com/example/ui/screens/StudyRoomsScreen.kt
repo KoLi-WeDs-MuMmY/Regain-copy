@@ -153,6 +153,7 @@ private fun ActiveSanctuaryRoomBanner(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(14.dp, RoundedCornerShape(28.dp), clip = false)
             .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
@@ -312,6 +313,7 @@ private fun RoomDirectorySection(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(12.dp, RoundedCornerShape(26.dp), clip = false)
             .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(26.dp)),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
@@ -410,6 +412,7 @@ private fun RoomLeaderboardSection(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(12.dp, RoundedCornerShape(26.dp), clip = false)
             .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(26.dp)),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
