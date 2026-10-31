@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.regainzen.kxmzpq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "1.3.0"
+    versionCode = 5
+    versionName = "1.3.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -63,7 +63,23 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      isReturnDefaultValues = true
+      all {
+        it.maxHeapSize = "2048m"
+        it.jvmArgs("-XX:+UseG1GC", "-XX:MaxMetaspaceSize=512m")
+        it.testLogging {
+          events("passed", "skipped", "failed")
+          showStandardStreams = true
+          showExceptions = true
+          showCauses = true
+          showStackTraces = true
+        }
+      }
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true

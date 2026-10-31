@@ -45,7 +45,13 @@ fun AiCoachInsightsScreen(
     onUpdateApiKey: (String) -> Unit,
     onToggleApiKeyDialog: (Boolean) -> Unit
 ) {
-    BackHandler(onBack = onBackToHome)
+    BackHandler {
+        if (uiState.aiCoachState.mode == AiCoachMode.CHAT) {
+            onSetMode(AiCoachMode.INSIGHTS)
+        } else {
+            onBackToHome()
+        }
+    }
 
     if (uiState.aiCoachState.showApiKeyDialog) {
         ApiKeySettingsDialog(
@@ -512,7 +518,11 @@ private fun SinglePromptAiCoachCard(
             Button(
                 onClick = onGenerateDailyInsight,
                 enabled = (quotaLeft > 0 || uiState.userProgress.customGeminiApiKey.isNotBlank()) && !uiState.isGeneratingAiInsight,
-                modifier = Modifier.fillMaxWidth().height(52.dp).shadow(12.dp, RoundedCornerShape(50), clip = false, ambientColor = RadiantEmber),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .shadow(12.dp, RoundedCornerShape(50), clip = false, ambientColor = RadiantEmber)
+                    .testTag("generate_ai_insight_button"),
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(containerColor = RadiantEmber, contentColor = ObsidianVoidCanvas)
             ) {
@@ -524,6 +534,53 @@ private fun SinglePromptAiCoachCard(
                     Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Synthesize Daily Focus", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = ObsidianInsetTrough,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
+                    .clickable { showPromptPayload = !showPromptPayload }
+                    .testTag("inspect_prompt_payload_toggle")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Inspect Privacy-Safe Prompt Payload",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MutedSlate
+                    )
+                    Icon(
+                        imageVector = if (showPromptPayload) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            if (showPromptPayload) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = ObsidianVoidCanvas,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(16.dp))
+                ) {
+                    Text(
+                        text = todayInsight?.promptUsedPreview ?: singlePromptPreview,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate,
+                        modifier = Modifier.padding(14.dp)
+                    )
                 }
             }
         }

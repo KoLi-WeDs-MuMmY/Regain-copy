@@ -24,7 +24,10 @@ class GeminiAiService {
             .build()
     }
 
-    private val defaultModel = "gemini-1.5-flash"
+    private val candidateModels = listOf(
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash"
+    )
     private val systemInstructions = """
         You are Rega, a calm, wise, and encouraging Zen digital wellbeing coach. 
         Your goal is to help the user regain focus, manage screen time, and find balance in a noisy digital world.
@@ -43,18 +46,9 @@ class GeminiAiService {
         history: List<ChatMessage>,
         userMessage: String
     ): String? = withContext(Dispatchers.IO) {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$defaultModel:generateContent?key=$apiKey"
-        
-        val contents = JSONArray()
-        
-        // Add system instruction as part of the first message or use system_instruction if supported in v1beta
-        // For simplicity in OkHttp implementation, we prepend it to the context or use a special message.
-        // Google AI SDK uses a specific field, but via REST it can be a part of the contents if the model supports it.
-        // Alternatively, we use the v1beta system_instruction field.
-        
         val payload = JSONObject().apply {
             put("system_instruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", systemInstructions))))
-            
+
             val contentsArray = JSONArray()
             history.forEach { msg ->
                 contentsArray.put(JSONObject().apply {
@@ -67,41 +61,48 @@ class GeminiAiService {
                 put("parts", JSONArray().put(JSONObject().put("text", userMessage)))
             })
             put("contents", contentsArray)
-            
+
             put("generationConfig", JSONObject().apply {
                 put("maxOutputTokens", 512)
                 put("temperature", 0.7)
             })
         }
 
-        val request = Request.Builder()
-            .url(url)
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
+        val bodyBytes = payload.toString().toRequestBody("application/json".toMediaType())
 
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val bodyStr = response.body?.string() ?: return@withContext null
-                val root = JSONObject(bodyStr)
-                return@withContext root.optJSONArray("candidates")
-                    ?.optJSONObject(0)
-                    ?.optJSONObject("content")
-                    ?.optJSONArray("parts")
-                    ?.optJSONObject(0)
-                    ?.optString("text")
+        for (model in candidateModels) {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+            val request = Request.Builder()
+                .url(url)
+                .post(bodyBytes)
+                .build()
+
+            try {
+                val reply = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val bodyStr = response.body?.string() ?: return@use null
+                    val root = JSONObject(bodyStr)
+                    root.optJSONArray("candidates")
+                        ?.optJSONObject(0)
+                        ?.optJSONObject("content")
+                        ?.optJSONArray("parts")
+                        ?.optJSONObject(0)
+                        ?.optString("text")
+                }
+                if (!reply.isNullOrBlank()) {
+                    return@withContext reply
+                }
+            } catch (_: Exception) {
+                // Try next Flash model candidate
             }
-        } catch (e: Exception) {
-            null
         }
+        null
     }
-    
+
     suspend fun generateStructuredInsight(
         apiKey: String,
         prompt: String
     ): JSONObject? = withContext(Dispatchers.IO) {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$defaultModel:generateContent?key=$apiKey"
-        
         val payload = JSONObject().apply {
             put("system_instruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "You are a JSON-only digital wellbeing engine. Output strict JSON only."))))
             put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
@@ -112,27 +113,33 @@ class GeminiAiService {
             })
         }
 
-        val request = Request.Builder()
-            .url(url)
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
+        val bodyBytes = payload.toString().toRequestBody("application/json".toMediaType())
 
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val bodyStr = response.body?.string() ?: return@withContext null
-                val root = JSONObject(bodyStr)
-                val text = root.optJSONArray("candidates")
-                    ?.optJSONObject(0)
-                    ?.optJSONObject("content")
-                    ?.optJSONArray("parts")
-                    ?.optJSONObject(0)
-                    ?.optString("text") ?: return@withContext null
-                
-                return@withContext JSONObject(text)
+        for (model in candidateModels) {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+            val request = Request.Builder()
+                .url(url)
+                .post(bodyBytes)
+                .build()
+
+            try {
+                val parsed = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val bodyStr = response.body?.string() ?: return@use null
+                    val root = JSONObject(bodyStr)
+                    val text = root.optJSONArray("candidates")
+                        ?.optJSONObject(0)
+                        ?.optJSONObject("content")
+                        ?.optJSONArray("parts")
+                        ?.optJSONObject(0)
+                        ?.optString("text") ?: return@use null
+                    JSONObject(text)
+                }
+                if (parsed != null) return@withContext parsed
+            } catch (_: Exception) {
+                // Try next Flash model candidate
             }
-        } catch (e: Exception) {
-            null
         }
+        null
     }
 }

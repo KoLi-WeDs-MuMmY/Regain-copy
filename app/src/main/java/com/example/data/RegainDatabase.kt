@@ -143,8 +143,8 @@ interface RegainDao {
     suspend fun upsertAiInsight(insight: AiCoachInsightEntity)
 }
 
-class RegainDatabase private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "regain_zen_offline_v11.db", null, 2),
+class RegainDatabase private constructor(private val appContext: Context) :
+    SQLiteOpenHelper(appContext, "regain_zen_offline_v11.db", null, 3),
     RegainDao {
 
     private val appLimitsFlow = MutableStateFlow<List<AppLimitEntity>>(emptyList())
@@ -280,6 +280,10 @@ class RegainDatabase private constructor(context: Context) :
         }
         try {
             db.execSQL("ALTER TABLE focus_sessions ADD COLUMN durationSeconds INTEGER NOT NULL DEFAULT 0")
+        } catch (_: Exception) {
+        }
+        try {
+            db.execSQL("ALTER TABLE user_progress ADD COLUMN customGeminiApiKey TEXT NOT NULL DEFAULT ''")
         } catch (_: Exception) {
         }
     }
@@ -529,6 +533,7 @@ class RegainDatabase private constructor(context: Context) :
     private fun queryUserProgress(db: SQLiteDatabase): UserProgressEntity? {
         db.rawQuery("SELECT * FROM user_progress WHERE id = 1 LIMIT 1", null).use { c ->
             if (c.moveToFirst()) {
+                val apiKeyCol = c.getColumnIndex("customGeminiApiKey")
                 return UserProgressEntity(
                     id = c.getInt(c.getColumnIndexOrThrow("id")),
                     regaLevel = c.getInt(c.getColumnIndexOrThrow("regaLevel")),
@@ -540,7 +545,7 @@ class RegainDatabase private constructor(context: Context) :
                     mindfulBreathsCompleted = c.getInt(c.getColumnIndexOrThrow("mindfulBreathsCompleted")),
                     strictModeGlobal = c.getInt(c.getColumnIndexOrThrow("strictModeGlobal")) != 0,
                     strictPassphrase = c.getString(c.getColumnIndexOrThrow("strictPassphrase")),
-                    customGeminiApiKey = c.getString(c.getColumnIndexOrThrow("customGeminiApiKey"))
+                    customGeminiApiKey = if (apiKeyCol >= 0) c.getString(apiKeyCol).orEmpty() else ""
                 )
             }
         }
@@ -724,10 +729,20 @@ class RegainDatabase private constructor(context: Context) :
         private var INSTANCE: RegainDatabase? = null
 
         fun getDatabase(context: Context): RegainDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = RegainDatabase(context.applicationContext)
-                INSTANCE = instance
-                instance
+            val appCtx = context.applicationContext
+            val current = INSTANCE
+            if (current != null && current.appContext === appCtx) {
+                return current
+            }
+            return synchronized(this) {
+                val existing = INSTANCE
+                if (existing != null && existing.appContext === appCtx) {
+                    existing
+                } else {
+                    val instance = RegainDatabase(appCtx)
+                    INSTANCE = instance
+                    instance
+                }
             }
         }
     }

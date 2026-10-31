@@ -97,7 +97,6 @@ class SinglePromptAiCoach {
         dateKey: String,
         prompt: String
     ): AiCoachInsightEntity? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey"
         val payload = JSONObject().apply {
             put(
                 "contents",
@@ -118,36 +117,47 @@ class SinglePromptAiCoach {
             )
         }
 
-        val request = Request.Builder()
-            .url(url)
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
+        val bodyBytes = payload.toString().toRequestBody("application/json".toMediaType())
+        val models = listOf("gemini-2.0-flash-lite", "gemini-1.5-flash")
 
-        httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-            val bodyStr = response.body?.string() ?: return null
-            val root = JSONObject(bodyStr)
-            val text = root.optJSONArray("candidates")
-                ?.optJSONObject(0)
-                ?.optJSONObject("content")
-                ?.optJSONArray("parts")
-                ?.optJSONObject(0)
-                ?.optString("text") ?: return null
+        for (model in models) {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+            val request = Request.Builder()
+                .url(url)
+                .post(bodyBytes)
+                .build()
 
-            val parsed = JSONObject(text)
-            return AiCoachInsightEntity(
-                dateKey = dateKey,
-                requestsUsedToday = 1,
-                coachHeadline = parsed.optString("coachHeadline", "Your mindful boundaries are protecting your best hours."),
-                habitBottleneck = parsed.optString("habitBottleneck", "High impulse pickups during afternoon transitions."),
-                timeSavedProjectionMinutes = parsed.optInt("timeSavedProjectionMinutes", 85),
-                microChallenge1 = parsed.optString("microChallenge1", "Enable Strict Mode during your next 25m Pomodoro."),
-                microChallenge2 = parsed.optString("microChallenge2", "Keep Instagram & YouTube in DM/Search-only Shield mode after 9 PM."),
-                microChallenge3 = parsed.optString("microChallenge3", "Take 3 slow 4-4-4 breaths whenever a feed block appears."),
-                promptUsedPreview = prompt,
-                sourceMode = "GEMINI_1_REQ_CAPPED"
-            )
+            val result = runCatching {
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val bodyStr = response.body?.string() ?: return@use null
+                    val root = JSONObject(bodyStr)
+                    val text = root.optJSONArray("candidates")
+                        ?.optJSONObject(0)
+                        ?.optJSONObject("content")
+                        ?.optJSONArray("parts")
+                        ?.optJSONObject(0)
+                        ?.optString("text") ?: return@use null
+
+                    val parsed = JSONObject(text)
+                    AiCoachInsightEntity(
+                        dateKey = dateKey,
+                        requestsUsedToday = 1,
+                        coachHeadline = parsed.optString("coachHeadline", "Your mindful boundaries are protecting your best hours."),
+                        habitBottleneck = parsed.optString("habitBottleneck", "High impulse pickups during afternoon transitions."),
+                        timeSavedProjectionMinutes = parsed.optInt("timeSavedProjectionMinutes", 85),
+                        microChallenge1 = parsed.optString("microChallenge1", "Enable Strict Mode during your next 25m Pomodoro."),
+                        microChallenge2 = parsed.optString("microChallenge2", "Keep Instagram & YouTube in DM/Search-only Shield mode after 9 PM."),
+                        microChallenge3 = parsed.optString("microChallenge3", "Take 3 slow 4-4-4 breaths whenever a feed block appears."),
+                        promptUsedPreview = prompt,
+                        sourceMode = "GEMINI_1_REQ_CAPPED"
+                    )
+                }
+            }.getOrNull()
+
+            if (result != null) return result
         }
+        return null
     }
 
     private fun generateOfflineHeuristicInsight(

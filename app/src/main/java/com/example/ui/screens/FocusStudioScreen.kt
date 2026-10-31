@@ -513,7 +513,15 @@ private fun FocusConsistencyMatrixCard() {
                 Text(text = "WEEK 44", style = MaterialTheme.typography.labelSmall, color = MutedSlate)
             }
 
-            // Matrix simulation
+            // Matrix simulation (deterministic across recompositions)
+            val matrixPattern = remember {
+                listOf(
+                    listOf(4, 3, 4, 2, 4, 2, 4),
+                    listOf(3, 4, 3, 1, 3, 0, 3),
+                    listOf(1, 3, 2, 0, 3, 0, 1),
+                    listOf(0, 1, 0, 0, 2, 0, 0)
+                )
+            }
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN").forEach {
@@ -521,15 +529,14 @@ private fun FocusConsistencyMatrixCard() {
                     }
                 }
                 
-                repeat(4) { row ->
+                matrixPattern.forEach { rowValues ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                        repeat(7) { col ->
-                            val intensity = (Math.random() * 5).toInt()
+                        rowValues.forEach { intensity ->
                             val color = when (intensity) {
                                 0 -> ObsidianSurfaceHigh
-                                1 -> RadiantEmber.copy(alpha = 0.2f)
-                                2 -> RadiantEmber.copy(alpha = 0.4f)
-                                3 -> RadiantEmber.copy(alpha = 0.6f)
+                                1 -> RadiantEmber.copy(alpha = 0.22f)
+                                2 -> RadiantEmber.copy(alpha = 0.45f)
+                                3 -> RadiantEmber.copy(alpha = 0.72f)
                                 else -> RadiantEmber
                             }
                             Box(modifier = Modifier.size(width = 38.dp, height = 24.dp).clip(RoundedCornerShape(6.dp)).background(color))

@@ -471,7 +471,7 @@ private fun ObsidianTopAppBar(
                 modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(8.dp))
             ) {
                 Text(
-                    text = "V1.3",
+                    text = "V1.3.1",
                     style = MaterialTheme.typography.labelSmall,
                     color = MutedSlate,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
