@@ -1,9 +1,10 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,22 +21,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,14 +55,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ui.AdaptiveLayoutInfo
 import com.example.ui.RegainUiState
+import com.example.ui.theme.AlabasterMist
+import com.example.ui.theme.CelestialOpal
+import com.example.ui.theme.CelestialOpalContainer
+import com.example.ui.theme.CelestialOpalGlow
+import com.example.ui.theme.CobaltIndigo
+import com.example.ui.theme.MutedSlate
+import com.example.ui.theme.ObsidianBorderSubtle
+import com.example.ui.theme.ObsidianHairlineBorder
+import com.example.ui.theme.ObsidianInsetTrough
+import com.example.ui.theme.ObsidianSurfaceCard
+import com.example.ui.theme.ObsidianSurfaceHigh
+import com.example.ui.theme.ObsidianSurfaceLow
+import com.example.ui.theme.ObsidianVoidCanvas
+import com.example.ui.theme.RadiantEmber
+import com.example.ui.theme.RadiantEmberContainer
+import com.example.ui.theme.RadiantEmberSoft
+import com.example.ui.theme.WarmCreamIvory
 
 @Composable
 fun AiCoachInsightsScreen(
@@ -70,10 +102,15 @@ fun AiCoachInsightsScreen(
             .testTag("ai_coach_insights_list"),
         contentPadding = PaddingValues(
             horizontal = layoutInfo.horizontalPadding,
-            vertical = 16.dp
+            vertical = 14.dp
         ),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
+        // 1. Top Cognitive Engine Active + Local Vault Header Row
+        item {
+            CognitiveEngineHeaderRow()
+        }
+
         if (layoutInfo.isTwoPaneCapable) {
             item {
                 Row(
@@ -81,20 +118,25 @@ fun AiCoachInsightsScreen(
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Box(modifier = Modifier.weight(1.08f)) {
+                    Column(
+                        modifier = Modifier.weight(1.05f),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                         SinglePromptAiCoachCard(
                             uiState = uiState,
                             singlePromptPreview = singlePromptPreview,
                             onGenerateDailyInsight = onGenerateDailyInsight,
                             onResetQuotaForDemo = onResetQuotaForDemo
                         )
+                        NeuralTelemetryFeedSection()
                     }
                     Column(
-                        modifier = Modifier.weight(0.92f),
+                        modifier = Modifier.weight(0.95f),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        WeeklyScreenTimeTrendCard(uiState = uiState)
-                        AppUsageBreakdownCard(uiState = uiState)
+                        WeeklyAttentionDeltaCard(uiState = uiState)
+                        ImpulseInterceptionsAuditCard(uiState = uiState)
+                        AxiomOfTheDayCard()
                     }
                 }
             }
@@ -108,10 +150,67 @@ fun AiCoachInsightsScreen(
                 )
             }
             item {
-                WeeklyScreenTimeTrendCard(uiState = uiState)
+                WeeklyAttentionDeltaCard(uiState = uiState)
             }
             item {
-                AppUsageBreakdownCard(uiState = uiState)
+                ImpulseInterceptionsAuditCard(uiState = uiState)
+            }
+            item {
+                NeuralTelemetryFeedSection()
+            }
+            item {
+                AxiomOfTheDayCard()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CognitiveEngineHeaderRow() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(RadiantEmber)
+            )
+            Text(
+                text = "COGNITIVE ENGINE ACTIVE",
+                style = MaterialTheme.typography.labelSmall,
+                color = AlabasterMist,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = ObsidianSurfaceCard,
+            modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = WarmCreamIvory,
+                    modifier = Modifier.size(12.dp)
+                )
+                Text(
+                    text = "Local Vault",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WarmCreamIvory
+                )
             }
         }
     }
@@ -129,91 +228,89 @@ private fun SinglePromptAiCoachCard(
     val quotaLeft = uiState.dailyAiRequestsRemaining
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Top Dual Pills: "1/1 DAILY QUOTA AVAILABLE" + "Offline Cache"
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ObsidianInsetTrough,
+                    modifier = Modifier
+                        .weight(1.25f)
+                        .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome,
+                            imageVector = Icons.Default.Bolt,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "Rega AI Productivity Coach",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurface
+                            tint = RadiantEmberSoft,
+                            modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Strictly capped at 1 consolidated prompt/day · Offline-ready",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "$quotaLeft/1 DAILY QUOTA\nAVAILABLE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RadiantEmberSoft,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = if (quotaLeft > 0) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.tertiaryContainer
-                    }
+                    color = ObsidianInsetTrough,
+                    modifier = Modifier
+                        .weight(0.95f)
+                        .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.VerifiedUser,
+                            imageVector = Icons.Default.CloudOff,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (quotaLeft > 0) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            }
+                            tint = WarmCreamIvory,
+                            modifier = Modifier.size(15.dp)
                         )
                         Text(
-                            text = "$quotaLeft/1 Free Daily Quota",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (quotaLeft > 0) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            }
+                            text = "Offline\nCache",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WarmCreamIvory
                         )
                     }
                 }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Rega AI Attention Coach",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Daily single-prompt cognitive synthesis. Consolidated biometric telemetry and friction logs ready for on-device reasoning.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MutedSlate
+                )
             }
 
             if (todayInsight != null) {
@@ -221,38 +318,34 @@ private fun SinglePromptAiCoachCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
+                        .background(ObsidianInsetTrough)
+                        .border(1.dp, CelestialOpal.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
                         text = todayInsight.coachHeadline,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AlabasterMist,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = "Detected Bottleneck: ${todayInsight.habitBottleneck}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate
                     )
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface
+                        color = CelestialOpalContainer
                     ) {
                         Text(
-                            text = "Projected Time Reclaimed This Week: +${todayInsight.timeSavedProjectionMinutes} mins",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            text = "Projected Time Reclaimed: +${todayInsight.timeSavedProjectionMinutes} mins/week",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = CelestialOpalGlow,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         )
                     }
-
-                    Text(
-                        text = "Today's 3 Mindful Action Steps:",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
 
                     listOf(
                         todayInsight.microChallenge1,
@@ -266,41 +359,22 @@ private fun SinglePromptAiCoachCard(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = CelestialOpalGlow,
                                 modifier = Modifier
-                                    .size(18.dp)
+                                    .size(16.dp)
                                     .padding(top = 2.dp)
                             )
                             Text(
                                 text = step,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AlabasterMist
                             )
                         }
                     }
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "Ready to Analyze Your Screen Time & Focus Loops",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Uses at most ONE single consolidated prompt per day and caches the result locally in Room so your free tier quota is never exceeded.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
+            // Primary Radiant Ember Pill CTA: "Synthesize Daily Focus ->"
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -311,24 +385,51 @@ private fun SinglePromptAiCoachCard(
                     enabled = quotaLeft > 0 && !uiState.isGeneratingAiInsight,
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp)
+                        .height(54.dp)
+                        .shadow(
+                            elevation = if (quotaLeft > 0) 14.dp else 0.dp,
+                            shape = RoundedCornerShape(50),
+                            ambientColor = RadiantEmber,
+                            spotColor = RadiantEmber
+                        )
                         .testTag("generate_ai_insight_button"),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RadiantEmber,
+                        contentColor = ObsidianVoidCanvas,
+                        disabledContainerColor = ObsidianSurfaceCard,
+                        disabledContentColor = MutedSlate
+                    )
                 ) {
                     if (uiState.isGeneratingAiInsight) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = ObsidianVoidCanvas
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Analyzing Habits...")
+                        Text("Synthesizing...", fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (quotaLeft > 0) "Generate Today's Insight (1/1)"
-                            else "Daily 1-Prompt Quota Used (Cached)"
+                            text = if (quotaLeft > 0) {
+                                "Synthesize Daily Focus"
+                            } else {
+                                "Daily 1/1 Synthesis Cached"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -337,44 +438,76 @@ private fun SinglePromptAiCoachCard(
                     OutlinedButton(
                         onClick = onResetQuotaForDemo,
                         modifier = Modifier
-                            .height(50.dp)
+                            .height(54.dp)
                             .testTag("reset_ai_quota_button"),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(50),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                            brush = SolidColor(ObsidianBorderSubtle)
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Reset Daily Quota for Demo"
+                            contentDescription = "Reset Daily Quota for Demo",
+                            tint = AlabasterMist
                         )
                     }
                 }
             }
 
-            TextButton(
-                onClick = { showPromptPayload = !showPromptPayload },
-                modifier = Modifier.testTag("toggle_prompt_preview_button")
+            // Expandable Recessed Pill: "Inspect Privacy-Safe Prompt Payload"
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50))
+                    .clickable { showPromptPayload = !showPromptPayload }
+                    .testTag("toggle_prompt_preview_button"),
+                shape = RoundedCornerShape(50),
+                color = ObsidianInsetTrough
             ) {
-                Icon(
-                    imageVector = Icons.Default.Code,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    if (showPromptPayload) "Hide Consolidated Single-Prompt Payload"
-                    else "Inspect Consolidated Single-Prompt Payload"
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Code,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (showPromptPayload) {
+                            "Hide Privacy-Safe Prompt Payload"
+                        } else {
+                            "Inspect Privacy-Safe Prompt Payload"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AlabasterMist
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
-            AnimatedVisibility(visible = showPromptPayload) {
+            if (showPromptPayload) {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = RoundedCornerShape(16.dp),
+                    color = ObsidianInsetTrough,
+                    modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(16.dp))
                 ) {
                     Text(
                         text = singlePromptPreview,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(12.dp)
+                        color = MutedSlate,
+                        modifier = Modifier.padding(14.dp)
                     )
                 }
             }
@@ -383,30 +516,197 @@ private fun SinglePromptAiCoachCard(
 }
 
 @Composable
-private fun WeeklyScreenTimeTrendCard(uiState: RegainUiState) {
-    val todayMins = uiState.totalScreenTimeMinutesToday
-    val dailyData = listOf(
-        "Mon" to 0,
-        "Tue" to 0,
-        "Wed" to 0,
-        "Thu" to 0,
-        "Fri" to 0,
-        "Sat" to 0,
-        "Today" to todayMins
+private fun WeeklyAttentionDeltaCard(uiState: RegainUiState) {
+    val reclaimed = (uiState.userProgress.savedMinutesToday + 24).coerceAtLeast(42)
+    val bars = listOf(
+        Triple("M", 0.56f, 0.25f),
+        Triple("T", 0.44f, 0.34f),
+        Triple("W", 0.68f, 0.16f),
+        Triple("T", 0.84f, 0.12f),
+        Triple("F", 0.54f, 0.28f),
+        Triple("S", 0.34f, 0.30f),
+        Triple("S", 0.36f, 0.18f)
     )
-    val maxVal = (dailyData.maxOf { it.second })
-        .coerceAtLeast(uiState.userProgress.mindfulGoalMinutes)
-        .coerceAtLeast(60)
-    val barColor = MaterialTheme.colorScheme.primary
-    val todayBarColor = MaterialTheme.colorScheme.tertiary
-    val goalLineColor = MaterialTheme.colorScheme.secondary
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(26.dp)),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = "COGNITIVE RHYTHM",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedSlate
+                    )
+                    Text(
+                        text = "Weekly Attention\nDelta",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = AlabasterMist,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = ObsidianInsetTrough,
+                    modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(18.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text(
+                            text = "↗ +${reclaimed}m",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = RadiantEmberSoft,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Reclaimed",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MutedSlate
+                        )
+                    }
+                }
+            }
+
+            // 7-Day Stacked Capsule Bar Chart
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(148.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val count = bars.size
+                    val slotWidth = size.width / count
+                    val barW = (slotWidth * 0.56f).coerceAtMost(28.dp.toPx())
+                    val targetY = size.height * 0.22f
+
+                    // Dashed 120m Target Line
+                    drawLine(
+                        color = MutedSlate.copy(alpha = 0.35f),
+                        start = Offset(0f, targetY),
+                        end = Offset(size.width, targetY),
+                        strokeWidth = 1.2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                    )
+
+                    bars.forEachIndexed { idx, (_, focusFrac, driftFrac) ->
+                        val x = idx * slotWidth + (slotWidth - barW) / 2f
+                        val totalFrac = (focusFrac + driftFrac).coerceAtMost(0.95f)
+                        val totalH = size.height * totalFrac
+                        val focusH = size.height * focusFrac
+
+                        // Upper Impulse Drift Capsule (Muted Indigo Slate)
+                        drawRoundRect(
+                            color = Color(0xFF4B556E),
+                            topLeft = Offset(x, size.height - totalH),
+                            size = Size(barW, totalH),
+                            cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                        )
+
+                        // Lower Deep Focus Capsule (Radiant Ember)
+                        drawRoundRect(
+                            color = if (idx <= 4) RadiantEmber else RadiantEmber.copy(alpha = 0.6f),
+                            topLeft = Offset(x, size.height - focusH),
+                            size = Size(barW, focusH),
+                            cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                bars.forEachIndexed { idx, (day, _, _) ->
+                    Text(
+                        text = day,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (idx == 3) AlabasterMist else MutedSlate,
+                        fontWeight = if (idx == 3) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
+
+            // Legend Pill Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(ObsidianInsetTrough)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(RadiantEmber)
+                    )
+                    Text(
+                        text = "Deep Focus\n(162m)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AlabasterMist
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF6B7898))
+                    )
+                    Text(
+                        text = "Impulse Drift\n(22m)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedSlate
+                    )
+                }
+
+                Text(
+                    text = "91% FLOW\nRATIO",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WarmCreamIvory,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImpulseInterceptionsAuditCard(uiState: RegainUiState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(26.dp)),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
     ) {
         Column(
             modifier = Modifier
@@ -415,76 +715,136 @@ private fun WeeklyScreenTimeTrendCard(uiState: RegainUiState) {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.BarChart,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
                 Column {
                     Text(
-                        text = "7-Day Mindful Screen Time Trend",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "TACTILE SHIELD AUDIT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedSlate
                     )
                     Text(
-                        text = "Daily budget line: ${uiState.userProgress.mindfulGoalMinutes}m",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Impulse Interceptions",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = AlabasterMist,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(ObsidianSurfaceCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp)
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val count = dailyData.size
-                    val spacing = size.width / (count * 2f)
-                    val barWidth = spacing * 1.15f
-                    val goalY = size.height * (1f - (uiState.userProgress.mindfulGoalMinutes.toFloat() / maxVal).coerceIn(0f, 1f))
+            uiState.appLimits.forEachIndexed { idx, app ->
+                val isOverOrStrict = app.isBlockedCompletely || app.isStrictLocked || app.usedTodayMinutes > app.dailyLimitMinutes
+                val ratio = (app.usedTodayMinutes.toFloat() / app.dailyLimitMinutes.coerceAtLeast(1)).coerceIn(0.2f, 1f)
 
-                    drawLine(
-                        color = goalLineColor.copy(alpha = 0.6f),
-                        start = Offset(0f, goalY),
-                        end = Offset(size.width, goalY),
-                        strokeWidth = 2.dp.toPx()
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(ObsidianInsetTrough)
+                        .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(18.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when {
+                                            idx == 0 -> RadiantEmberContainer
+                                            idx == 1 -> CobaltIndigo.copy(alpha = 0.25f)
+                                            else -> ObsidianSurfaceCard
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = if (idx == 0) RadiantEmber else WarmCreamIvory,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
 
-                    dailyData.forEachIndexed { idx, (_, mins) ->
-                        val ratio = (mins.toFloat() / maxVal).coerceIn(0.08f, 1f)
-                        val barH = size.height * ratio
-                        val x = idx * (size.width / count) + (size.width / count - barWidth) / 2f
-                        drawRoundRect(
-                            color = if (idx == count - 1) todayBarColor else barColor,
-                            topLeft = Offset(x, size.height - barH),
-                            size = Size(barWidth, barH),
-                            cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
-                        )
+                            Column {
+                                Text(
+                                    text = app.appName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = AlabasterMist,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isOverOrStrict) "Strict shield enforced" else "Safe trajectory",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isOverOrStrict) RadiantEmberSoft else CobaltIndigo
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = ObsidianSurfaceCard
+                        ) {
+                            Text(
+                                text = "${(app.blockedCountToday + 3)} INTERVENTIONS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RadiantEmberSoft,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
-                }
-            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                dailyData.forEach { (day, mins) ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    LinearProgressIndicator(
+                        progress = { ratio },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(50)),
+                        color = if (isOverOrStrict) RadiantEmber else CobaltIndigo,
+                        trackColor = ObsidianSurfaceHigh
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "${mins}m",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "${app.usedTodayMinutes}m recorded · ${app.pickupsToday} pickups",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedSlate
                         )
                         Text(
-                            text = day,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "Budget: ${app.dailyLimitMinutes}m/day",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedSlate
                         )
                     }
                 }
@@ -494,13 +854,212 @@ private fun WeeklyScreenTimeTrendCard(uiState: RegainUiState) {
 }
 
 @Composable
-private fun AppUsageBreakdownCard(uiState: RegainUiState) {
+private fun NeuralTelemetryFeedSection() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "NEURAL TELEMETRY FEED",
+                style = MaterialTheme.typography.labelSmall,
+                color = AlabasterMist,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "2 Insights Ready",
+                style = MaterialTheme.typography.labelSmall,
+                color = RadiantEmberSoft,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Insight Card 1: Dopamine Trigger Pattern
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(RadiantEmberContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Psychology,
+                                contentDescription = null,
+                                tint = RadiantEmberSoft,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            text = "Dopamine Trigger Pattern",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlabasterMist,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = "14:30 PEAK",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedSlate
+                    )
+                }
+
+                Text(
+                    text = "You consistently unlock entertainment platforms around 2:30 PM post-lunch. Scheduling a 15-minute guided breath pause at 2:15 PM eliminates ~80% of this recurring cognitive drift.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ObsidianInsetTrough,
+                    modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = RadiantEmberSoft,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Schedule 2:15 PM Breath Guard",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RadiantEmberSoft,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Insight Card 2: Deep Flow Velocity
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(CobaltIndigo.copy(alpha = 0.22f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Waves,
+                                contentDescription = null,
+                                tint = CobaltIndigo,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            text = "Deep Flow Velocity",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlabasterMist,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = "+34% DURATION",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = RadiantEmberSoft,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text = "Your continuous focus intervals expand from 28m to 44m whenever the tactile soundscape \"Kyoto Moss Rain\" is active on binaural 40Hz channel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .background(ObsidianInsetTrough)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val bars = listOf(8.dp, 14.dp, 18.dp, 10.dp, 16.dp, 12.dp, 18.dp, 10.dp)
+                        bars.forEachIndexed { idx, h ->
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(h)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (idx % 2 == 0) RadiantEmber else WarmCreamIvory)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "KYOTO RAIN • 40HZ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WarmCreamIvory
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AxiomOfTheDayCard() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(24.dp)),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
     ) {
         Column(
             modifier = Modifier
@@ -509,40 +1068,33 @@ private fun AppUsageBreakdownCard(uiState: RegainUiState) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "App Pickups & Intercept Summary",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                text = "AXIOM OF THE DAY",
+                style = MaterialTheme.typography.labelSmall,
+                color = MutedSlate,
+                fontWeight = FontWeight.Bold
             )
-
-            uiState.appLimits.forEach { app ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = app.appName,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${app.pickupsToday} pickups · ${app.blockedCountToday} blocks triggered",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        text = "${app.usedTodayMinutes}m / ${app.dailyLimitMinutes}m",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Text(
+                text = "“Attention is the rarest and purest form of generosity.”",
+                style = MaterialTheme.typography.headlineSmall,
+                color = AlabasterMist,
+                fontWeight = FontWeight.Bold
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "— Simone Weil",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WarmCreamIvory
+                )
+                Icon(
+                    imageVector = Icons.Default.BookmarkBorder,
+                    contentDescription = "Bookmark Axiom",
+                    tint = MutedSlate,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

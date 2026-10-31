@@ -1,88 +1,72 @@
-# Regain Zen — Version 1.2 Implementation Plan
+# Regain Zen — Version 1.3.0 UI & UX Implementation Plan
 
-## 1. Visual Theme & Aesthetic Direction: *Nocturnal Ocular Sanctuary & Disciplined Wavelengths*
+## 1. Visual Direction & Design System (Hybrid Obsidian Sanctuary + Tactile Chrono)
+Version **1.3.0** (`versionName = "1.3.0"`, `versionCode = 4`) upgrades the entire visual appearance of **Regain Zen** by fusing the **Obsidian Sanctuary** and **Tactile Chrono & Focus** design specifications while keeping 100% of existing features, database persistence, background blocking services, and actions intact:
 
-Version 1.2 refines the app's visual system and motion language around ocular comfort and biological color discipline:
-
-- **Deeply Muted, Shadowy Canvas & Layered Elevated Panels**:
-  - **Primary Canvas**: Deep obsidian-moss shadow (`#0D1110` / `#111614`) with zero harsh glare to relax ocular muscles during extended deep-work sessions.
-  - **Elevated Sanctuary Panels**: Subtle tiered surfaces (`#171E1B` and `#1E2723`) with muted hairline borders (`#26312C`) so secondary metadata melts quietly into dark borders while primary data sits in softened, low-glare alabaster (`#E6ECE8`).
-- **Strict Wavelength Discipline**:
-  - **Active Study & Positive Milestones (Mid-Spectrum Calming Frequency)**: Grounding bioluminescent sage-emerald (`#4E9F76` / `#68B68E`) that signals safety, focus, and steady rhythm.
-  - **Interception & Habit-Shock Alerts (Long-Wavelength Alarm Signal)**: Intense crimson-amber long-wavelength pulse (`#E0533C` / `#FF6B4A`) reserved strictly for the blocking intercept overlay to halt unconscious muscle memory without polluting the everyday study workspace.
-- **New Aesthetic Adaptive Logo (`ic_launcher`)**:
-  - A custom vector adaptive icon pairing a deeply muted obsidian-slate background (`#0E1412`) with a sleek geometric **Sanctuary Shield & Hourglass Aperture** foreground. Inside the shield's protective frame, a calming mid-spectrum emerald focus core (`#52A77C`) balances above a warm amber horizon arc—instantly communicating *screen-time shield, focus timer, and mindful digital sanctuary*.
-
----
-
-## 2. Decoupled Motion Container (`BlockerOverlayContainer`)
-
-We will create a dedicated, presentation-agnostic animation wrapper in `com.example.ui.components.BlockerOverlayContainer`:
-
-- **Composable API**:
-  ```kotlin
-  @Composable
-  fun BlockerOverlayContainer(
-      visible: Boolean,
-      onDismissComplete: () -> Unit,
-      modifier: Modifier = Modifier,
-      content: @Composable (requestDismiss: () -> Unit) -> Unit
-  )
-  ```
-- **Entry & Exit Transitions (Native Compose `AnimatedVisibility`)**:
-  - **Entry**: `fadeIn(animationSpec = tween(250)) + scaleIn(initialScale = 0.95f, animationSpec = tween(250)) + slideInVertically(animationSpec = tween(250), initialOffsetY = { it / 4 })`
-  - **Exit**: `fadeOut(animationSpec = tween(200)) + slideOutVertically(animationSpec = tween(200), targetOffsetY = { it / 4 })`
-- **State Coordination & Post-Exit Routing**:
-  - Controlled via an internal boolean state (`isVisible`) backed by `MutableTransitionState`.
-  - Calling `requestDismiss()` sets `isVisible = false` so the 200ms exit animation plays smoothly inside Compose.
-  - A `LaunchedEffect` waits until the exit transition finishes (`!transitionState.currentState && transitionState.isIdle`) before invoking `onDismissComplete()`, which then triggers `Intent.CATEGORY_HOME` (and removes the overlay view)—guaranteeing zero abrupt cut-offs or frame stutter.
-- **Strict Separation of Concerns**:
-  - No XML animations, no `overridePendingTransition`, and no `WindowManager.updateViewLayout` frame-stuttering calls.
-  - The container manages only the motion envelope, adaptive sizing constraints, and backdrop scrim fade, delegating all visual UI to the modular `content` slot.
+- **Color Architecture**:
+  - **Base Void Canvas**: `#0B0C0E` / `#111318` deep low-luminance obsidian backdrop.
+  - **Elevated Bento Modules**: `#14161B` (`surface-container-low`) and `#1C1F26` (`surface-container`) with `24dp`–`28dp` rounded geometry and hairline specular borders (`1dp` `rgba(255, 255, 255, 0.06)`).
+  - **Inset Recessed Troughs**: `#0D0E10` for segmented mode switchers, progress tracks, and radar bars.
+  - **Primary Action Accent (Radiant Ember / Burnt Vermilion)**: `#FF5E4D` / `#E75A44` for primary pill CTAs (`Begin Meditative Flow`, `Pause Flow`, `Synthesize Daily Focus`, `Test Friction Ritual`) with `#0B0C0E` dark obsidian label contrast.
+  - **Secondary Restorative Accent (Celestial Opal)**: `#4EBEA5` / `#6BD9BF` for balanced cognitive load badges, active shield telemetry (`AEGIS GRID ACTIVE`, `SURGICAL`, `STRIPPED`), and 432Hz binaural indicators.
+  - **Tactile Chrono Dial Accent (Warm Cream Ivory)**: `#EADECF` for the mechanical countdown dial ring, precision radial ticks, and tabular numerals.
+- **Typography (`Plus Jakarta Sans`)**:
+  - Bundle local `Plus Jakarta Sans` font files (`.ttf`) in `app/src/main/res/font/` for crisp geometric headers, tabular countdown numerals, and uppercase micro-labels (`11sp`, `+0.08em` tracking).
+- **Static In-App UI for v1.3.0**:
+  - In-app screen switching, tab navigation, and app launch open directly without theme/tab animations (reserving general UI animations for the **v1.3.1** update).
+  - **Only the Block Pop-Up (Interception Overlay)** features the new multi-stage liquid circle animation.
 
 ---
 
-## 3. Production-Ready Modular Intercept Slot (`BlockerInterceptCardSlot`)
+## 2. Screen-by-Screen UI & UX Redesign (Zero Feature Loss)
 
-Passed as the child slot into `BlockerOverlayContainer`, wrapped in a cleanly padded, modular card (`widthIn(max = 460.dp)`) for easy restyling:
+### Global Top Header & Floating Pill Navigation
+- **Unified Top Bar**: Displays the Regain Zen brand mark & active screen title, live streak/coins pill (`14D` / Focus Coins), Shield/Permissions status indicator button, and quick goal/settings trigger.
+- **Navigation Bar & Rail**: Floating dark pill dock (`Focus`, `Sanctuary`, `Shield`, `Rooms`, `Coach`) with subtle active pill indicator and adaptive `NavigationRail` on tablet/landscape layouts.
 
-1. **Breathing Long-Wavelength Warning Shield Icon**:
-   - Centered at the top of the card, pulsing smoothly with the long-wavelength crimson-amber signal (`#E0533C` -> `#FF6B4A`) to interrupt automatic scrolling muscle memory.
-2. **5-Second Mindfulness Countdown Timer**:
-   - Counts down from `5s` to `0s` with a smooth progress ring/bar upon interception.
-   - Holds override interaction until the 5-second mindfulness pause completes.
-3. **Two Full-Width Action Buttons**:
-   - **Primary Button (`"Return to Focus"`)**: Triggers `requestDismiss()`, playing the 200ms slide-and-fade exit animation and immediately routing to `Intent.CATEGORY_HOME` upon completion.
-   - **Secondary Button (`"Take a break"`)**:
-     - Enabled once the 5-second mindfulness countdown completes (and when Strict Mode is not locking overrides).
-     - Clicking `"Take a break"` smoothly reveals **4 break-duration chips below it: `5m`, `10m`, `15m`, and `30m`**.
-     - **Remaining-Time Glow Logic**: Each option (`5`, `10`, `15`, `30` min) is compared against the user's remaining daily allowance for that blocked app (`remainingMinutes = max(0, dailyLimitMinutes - usedTodayMinutes)`).
-     - Options where `remainingMinutes >= optionMinutes` **glow** with a vibrant border and illuminated surface; options exceeding the remaining time stay dim/disabled so the user can only take a break within their available budget. Selecting a glowing option plays the exit transition and grants that exact break duration.
+### 1. Sanctuary Screen (`SanctuaryHomeScreen.kt`)
+- **Twilight Sanctuary Hero**: Centered `"STATE OF MIND / Twilight Sanctuary"` header with the circular **Reclaimed Time** ember ring gauge (`#FF5E4D` glowing arc, reclaimed vs. daily cap readout) and `"Cognitive load balanced"` opal status pill.
+- **2-Column Bento Telemetry**: Side-by-side cards for **Pickups Avoided / Blocks** and **Deep Flow Span** with delta badges.
+- **Active Horizon Card**: Displays the active or upcoming focus directive/schedule, DND/Shield status badge, progress bar, and remaining duration.
+- **Ritual / Daily Quests**: Interactive quest cards with XP/coin rewards, completion checkmarks, and one-tap quest actions.
+- **Primary Pill CTA & Quick Controls**: Full-width Radiant Ember `"Begin Meditative Flow"` button plus clean access to Daily Goal tuning, Permission diagnostics, and Reels/Shorts intercept preview.
 
----
+### 2. Focus Studio (`FocusStudioScreen.kt`)
+- **Recessed Mode Selector**: Top pill bar switching between `Deep Work 25m`, `Ultra Flow 50m`, `Custom`, and `Stopwatch`.
+- **Tactile Chrono Radial Dial**: Precision radial tick ring and Warm Cream Ivory / Radiant Ember progress arc with centered tabular countdown readout (`REMAINING`, cycle indicator, and `100% FOCUS` badge).
+- **Tactile Transport Controls**: Circular Reset button, Radiant Ember `"Start / Pause Flow"` pill CTA, and Save/Complete session action (preserving exact-second study time recording).
+- **Active Directive Card**: Interactive subject/task tag selector (`Study`, `Coding`, `Reading`, `Design`, `Writing`) with elapsed pace bar.
+- **Acoustic Field / Focus Soundscape Card**: `432 HZ BINAURAL` badge, ambient sound selector (`Rain`, `White Noise`, `Forest`, `Cafe`, `Silent`), visual waveform bars, and tactile volume slider.
+- **Rhythm Constellation & Recent Sessions**: Weekly focus consistency matrix (`M T W T F S S`) alongside recorded session history.
 
-## 4. Choreographed Animations & Screen Size Compatibility
+### 3. Shield & Limits (`ShieldLimitsScreen.kt`)
+- **Aegis Grid Hero Radar**: `"AEGIS GRID ACTIVE"` status pill, concentric shield radar ring displaying total intrusions deflected, and posture selector (`Zen Fortress / Strict Mode`, `Surgical`, `Monk`) plus real-time background blocker permission status.
+- **Impulse Radar Window**: 24-hour vulnerability bar highlighting peak urge windows and active shield coverage.
+- **Monitored Portals**: Bento cards for **Short-Form Shields** (Instagram Reels `SURGICAL`, YouTube Shorts `STRIPPED`, TikTok `ABSOLUTE LOCK`) and **Per-App Daily Allowances** with emerald/ember progress bars, +/-5m steppers, and block toggles.
+- **4-4-4 Friction Ritual Preview Card**: Interactive preview card with `"TEST FRICTION RITUAL"` button to launch and test the new Block Pop-Up animation on demand.
+- **Add App / Focus Schedules**: Full app limit management and scheduled focus windows (`Add Schedule`, toggle, delete).
 
-### 3a. App Opening Animation (1.2s – 1.5s Clean Sequence)
-- Implemented in pure Jetpack Compose (`RegainOpeningTransition`):
-  - **0ms – 600ms**: Central Sanctuary Shield emblem fades in (`fadeIn(tween(600))`) and gently scales from `0.95f` to `1.0f` (`scaleIn(initialScale = 0.95f, animationSpec = tween(600))`).
-  - **200ms – 1100ms**: A single-cycle mid-spectrum emerald breathing glow softly accents the emblem.
-  - **300ms – 700ms**: Title typography glides upward by `12.dp` with a soft fade-in (`tween(400)`).
-  - **1150ms – 1450ms**: Seamlessly cross-dissolves (`fadeOut(tween(300))`) directly into the main Sanctuary dashboard with no tap-to-skip clutter or artificial loading delay.
+### 4. Study Rooms (`StudyRoomsScreen.kt`)
+- **Obsidian Sanctuary Bento Layout**: Redesigned room selector pills, live room telemetry header, peer study cards with live timer progress bars, and interactive focus cheers.
 
-### 3b. Blocking Intercept Animation
-- Replaces the instant static pop-up in `RegainOverlayWindowManager` and in-app shield modal with `BlockerOverlayContainer` + `BlockerInterceptCardSlot`.
-
-### 3c. In-App Tab Transitions (`SANCTUARY`, `FOCUS`, `SHIELD`, `INSIGHTS`)
-- Uses directional `AnimatedContent` in `MainActivity.kt` based on tab index order:
-  - Smooth horizontal slide (`{ it / 6 }` / `{ -it / 6 }`) combined with `fadeIn(tween(220))` and `fadeOut(tween(180))` when switching between tabs.
-
-### Universal Screen-Size Compatibility
-- Uses `BoxWithConstraints` and `WindowWidthSizeClass` (`COMPACT`, `MEDIUM`, `EXPANDED`) across all animations.
-- Relative percentage offsets (`{ it / 4 }`, `{ it / 6 }`), density-independent `12.dp` typography glide, and `widthIn(max = 460.dp)` with vertical scroll safety ensure crisp rendering on compact phones, tall 21:9 screens, foldables, and tablets in portrait or landscape.
+### 5. AI Coach & Insights (`AiCoachInsightsScreen.kt`)
+- **Cognitive Engine Header**: `"COGNITIVE ENGINE ACTIVE"` + `"Local Vault"` badge.
+- **Rega AI Attention Coach Hero Card**: Displays `"1/1 DAILY QUOTA AVAILABLE"` + `"Offline Cache"` badges, daily cognitive synthesis text, Radiant Ember `"Synthesize Daily Focus ->"` pill CTA, and an expandable `"Inspect Privacy-Safe Prompt Payload"` accordion.
+- **Weekly Attention Delta**: 7-day stacked bar chart comparing Deep Focus vs. Impulse Drift with flow ratio telemetry.
+- **Tactile Shield Audit & Neural Telemetry Feed**: Per-app intervention breakdown (`YouTube`, `Instagram`, `TikTok`), behavioral insight cards, and the `"AXIOM OF THE DAY"` wisdom card.
 
 ---
 
-## 5. Verification Plan
-- Compile the project using `compile_applet` to ensure zero build or type errors.
-- Run unit and Robolectric tests (`gradle :app:testDebugUnitTest`) verifying the break-duration eligibility calculation (`5, 10, 15, 30` min glow states), countdown state machine, and persistence.
+## 3. Fresh Block Pop-Up Animation (Black Liquid Circle Sequence)
+Both the system-wide background app blocker overlay (`RegainOverlayWindowManager` + `BlockerOverlayContainer`) and in-app intercept modal (`MindfulInterceptModal`) will feature the new **Black Liquid Circle** choreography:
+
+1. **Stage 1 — Liquid Circle Rise**: When a blocked app is opened, a sleek **Black Liquid Circle** housing the **Regain Zen emblem** rises smoothly from the bottom of the screen to the exact center.
+2. **Stage 2 — Elastic Pulse (Small -> Big)**: At the center of the screen, the liquid circle contracts briefly (becomes small) and then expands organically (becomes big) with a subtle liquid ring ripple.
+3. **Stage 3 — Adaptive Dock Shift**:
+   - **Portrait (Vertical Screen)**: The liquid emblem glides **upward** toward the upper focal zone.
+   - **Landscape (Horizontal Screen)**: The liquid emblem glides **to the left** so the content unfolds cleanly beside it.
+4. **Stage 4 — Liquid Message Emergence**: A mindfulness intervention message emerges directly out of the liquid circle (showing the intercepted app name, attempt count, and conscious habit prompt).
+5. **Stage 5 — Guided Breath Exercise**: A tactile breathing ring (`Inhale / Hold / Exhale` countdown) guides the user through a brief neuro-pause before override options unlock.
+6. **Stage 6 — Action & Break Options**:
+   - **Primary CTA ("Return to Study Sanctuary")**: Triggers the clean exit transition and routes back to Regain Zen / Home.
+   - **Break Options (`5m`, `10m`, `15m`, `30m`)**: Interactive break duration pills with glowing selection feedback and temporary unlock support (or locked badge when Strict Mode is active).

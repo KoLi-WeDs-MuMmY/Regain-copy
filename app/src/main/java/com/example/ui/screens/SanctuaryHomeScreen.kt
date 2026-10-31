@@ -1,9 +1,6 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,21 +22,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -58,20 +60,38 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.R
 import com.example.data.DailyQuestEntity
 import com.example.ui.AdaptiveLayoutInfo
 import com.example.ui.RegainTab
 import com.example.ui.RegainUiState
+import com.example.ui.theme.AlabasterMist
+import com.example.ui.theme.CelestialOpal
+import com.example.ui.theme.CelestialOpalContainer
+import com.example.ui.theme.CelestialOpalGlow
+import com.example.ui.theme.MutedSlate
+import com.example.ui.theme.ObsidianBorderSubtle
+import com.example.ui.theme.ObsidianHairlineBorder
+import com.example.ui.theme.ObsidianInsetTrough
+import com.example.ui.theme.ObsidianSurfaceCard
+import com.example.ui.theme.ObsidianSurfaceHigh
+import com.example.ui.theme.ObsidianSurfaceLow
+import com.example.ui.theme.ObsidianVoidCanvas
+import com.example.ui.theme.RadiantEmber
+import com.example.ui.theme.RadiantEmberContainer
+import com.example.ui.theme.RadiantEmberSoft
+import com.example.ui.theme.WarmCreamIvory
 import kotlin.math.roundToInt
 
 @Composable
@@ -104,27 +124,28 @@ fun SanctuaryHomeScreen(
             .testTag("sanctuary_home_list"),
         contentPadding = PaddingValues(
             horizontal = layoutInfo.horizontalPadding,
-            vertical = 16.dp
+            vertical = 14.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        // 1. Twilight Sanctuary Hero Ring Gauge
         item {
-            ZenSanctuaryHeroBanner(
+            TwilightSanctuaryHeroSection(
                 uiState = uiState,
-                isWide = layoutInfo.isTwoPaneCapable,
-                onStartQuickFocus = onStartQuickFocus,
-                onPreviewReelsIntercept = onPreviewReelsIntercept
+                onEditGoalClick = { showEditGoalDialog = true }
             )
         }
 
+        // 2. Two-Column Bento Telemetry (Pickups Avoided & Deep Flow Span)
         item {
-            HomePermissionPromptBanner(
+            SanctuaryBentoMetricsRow(
                 uiState = uiState,
-                onOpenPermissionsSetup = onOpenPermissionsSetup,
-                onNavigateToBlocker = { onNavigateTab(RegainTab.SHIELD) }
+                onFocusStudioClick = { onNavigateTab(RegainTab.FOCUS) },
+                onShieldClick = { onNavigateTab(RegainTab.SHIELD) }
             )
         }
 
+        // 3. Active Horizon / Solitary Journey + Permissions & Shield Quick Bar
         if (layoutInfo.isTwoPaneCapable) {
             item {
                 Row(
@@ -132,126 +153,261 @@ fun SanctuaryHomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        ScreenTimeBudgetCard(
+                    Box(modifier = Modifier.weight(1.08f)) {
+                        ActiveHorizonCard(
                             uiState = uiState,
-                            onEditGoalClick = { showEditGoalDialog = true },
+                            onStartQuickFocus = onStartQuickFocus,
+                            onPreviewReelsIntercept = onPreviewReelsIntercept,
                             onManageShieldsClick = { onNavigateTab(RegainTab.SHIELD) }
                         )
                     }
-                    Box(modifier = Modifier.weight(1f)) {
-                        RegaCompanionAndActionsColumn(
+                    Column(
+                        modifier = Modifier.weight(0.92f),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        SanctuaryPermissionsAndShortcutsCard(
                             uiState = uiState,
-                            onNavigateTab = onNavigateTab,
-                            onPreviewReelsIntercept = onPreviewReelsIntercept
+                            onOpenPermissionsSetup = onOpenPermissionsSetup,
+                            onNavigateTab = onNavigateTab
                         )
                     }
                 }
             }
         } else {
             item {
-                ScreenTimeBudgetCard(
+                ActiveHorizonCard(
                     uiState = uiState,
-                    onEditGoalClick = { showEditGoalDialog = true },
+                    onStartQuickFocus = onStartQuickFocus,
+                    onPreviewReelsIntercept = onPreviewReelsIntercept,
                     onManageShieldsClick = { onNavigateTab(RegainTab.SHIELD) }
                 )
             }
             item {
-                RegaCompanionAndActionsColumn(
+                SanctuaryPermissionsAndShortcutsCard(
                     uiState = uiState,
-                    onNavigateTab = onNavigateTab,
-                    onPreviewReelsIntercept = onPreviewReelsIntercept
+                    onOpenPermissionsSetup = onOpenPermissionsSetup,
+                    onNavigateTab = onNavigateTab
                 )
             }
         }
 
+        // 4. Ritual / Daily Quests Section
         item {
-            DailyDetoxQuestsSection(
+            RitualDailyQuestsSection(
                 quests = uiState.dailyQuests,
                 isTwoColumn = layoutInfo.gridColumns >= 2,
                 onClaimQuest = onClaimQuest
             )
         }
+
+        // 5. Full-Width Radiant Ember Pill CTA ("Begin Meditative Flow")
+        item {
+            BeginMeditativeFlowCta(
+                isTimerRunning = uiState.timerState.isRunning,
+                exactElapsedFormatted = uiState.timerState.exactElapsedFormatted,
+                onStartQuickFocus = onStartQuickFocus
+            )
+        }
     }
 }
 
 @Composable
-private fun HomePermissionPromptBanner(
+private fun TwilightSanctuaryHeroSection(
     uiState: RegainUiState,
-    onOpenPermissionsSetup: () -> Unit,
-    onNavigateToBlocker: () -> Unit
+    onEditGoalClick: () -> Unit
 ) {
-    val perms = uiState.permissionStatus
-    Card(
+    val reclaimedMins = (uiState.userProgress.savedMinutesToday + uiState.totalFocusedMinutesToday)
+        .coerceAtLeast(14)
+    val goalMin = uiState.userProgress.mindfulGoalMinutes.coerceAtLeast(30)
+    val ratio = (reclaimedMins.toFloat() / goalMin.toFloat()).coerceIn(0.18f, 1f)
+
+    val recHours = reclaimedMins / 60
+    val recRemMins = reclaimedMins % 60
+    val reclaimedFormatted = if (recHours > 0) "${recHours}h ${recRemMins}m" else "${recRemMins}m"
+
+    val goalHours = goalMin / 60
+    val goalRemMins = goalMin % 60
+    val goalFormatted = "${goalHours}h ${goalRemMins}m"
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("home_permissions_banner_card"),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (perms.allGranted) {
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-            } else {
-                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f)
-            }
-        )
+            .padding(top = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Header Stack: "STATE OF MIND" / "Twilight Sanctuary"
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            Text(
+                text = "STATE OF MIND",
+                style = MaterialTheme.typography.labelSmall,
+                color = RadiantEmberSoft.copy(alpha = 0.78f),
+                fontWeight = FontWeight.Bold
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "Twilight Sanctuary",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.Medium
+                )
+                IconButton(
+                    onClick = onEditGoalClick,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .testTag("edit_daily_goal_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit daily screen time budget",
+                        tint = MutedSlate,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Circular Radiant Ember Reclaimed Gauge
+        Box(
+            modifier = Modifier
+                .size(236.dp)
+                .clickable { onEditGoalClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val maxRadius = size.minDimension / 2f
+
+                // Ambient Radiant Ember radial bloom behind the ring
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            RadiantEmber.copy(alpha = 0.18f),
+                            RadiantEmberContainer.copy(alpha = 0.10f),
+                            Color.Transparent
+                        ),
+                        center = center,
+                        radius = maxRadius
+                    ),
+                    radius = maxRadius,
+                    center = center
+                )
+
+                val strokePx = 6.dp.toPx()
+                val ringDiameter = size.minDimension * 0.80f
+                val topLeft = Offset(
+                    (size.width - ringDiameter) / 2f,
+                    (size.height - ringDiameter) / 2f
+                )
+
+                // Subtle Dark Track Ring
+                drawArc(
+                    color = ObsidianSurfaceHigh.copy(alpha = 0.85f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(ringDiameter, ringDiameter),
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                )
+
+                // Soft Outer Glow Arc
+                drawArc(
+                    color = RadiantEmber.copy(alpha = 0.28f),
+                    startAngle = -90f,
+                    sweepAngle = 360f * ratio,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(ringDiameter, ringDiameter),
+                    style = Stroke(width = strokePx * 2.5f, cap = StrokeCap.Round)
+                )
+
+                // Crisp Radiant Ember Progress Arc
+                drawArc(
+                    brush = Brush.sweepGradient(
+                        colors = listOf(
+                            RadiantEmber,
+                            RadiantEmberSoft,
+                            RadiantEmber
+                        ),
+                        center = center
+                    ),
+                    startAngle = -90f,
+                    sweepAngle = 360f * ratio,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(ringDiameter, ringDiameter),
+                    style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "RECLAIMED",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = RadiantEmberSoft,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = reclaimedFormatted,
+                    style = MaterialTheme.typography.displayMedium,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.Normal
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "of $goalFormatted daily cap",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate
+                    )
+                }
+            }
+        }
+
+        // Celestial Opal "Cognitive load balanced" Status Pill
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = ObsidianSurfaceLow,
+            modifier = Modifier.border(
+                width = 1.dp,
+                color = CelestialOpal.copy(alpha = 0.28f),
+                shape = RoundedCornerShape(50)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(7.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Layers,
-                        contentDescription = null,
-                        tint = if (perms.allGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary
-                    )
-                }
-                Column {
-                    Text(
-                        text = if (perms.allGranted) {
-                            "App Blocker & Screen Pop-Up Shield Active (${uiState.activelyBlockedAppsCount} Apps Blocked)"
-                        } else {
-                            "Enable App Blocker & Screen Pop-Up Permissions (${perms.grantedCount}/${perms.totalCount})"
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (perms.allGranted) {
-                            "All 5 permissions granted to block chosen apps in the background and display breathing pop-ups over YouTube, Reels & Shorts."
-                        } else {
-                            "Grant permissions (including Unrestricted Background) to block apps and display pop-ups in real time over YouTube, Shorts & Reels."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Button(
-                onClick = if (perms.allGranted) onNavigateToBlocker else onOpenPermissionsSetup,
-                modifier = Modifier.testTag("home_grant_permissions_button"),
-                shape = RoundedCornerShape(50),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-            ) {
+                        .background(CelestialOpalGlow)
+                )
                 Text(
-                    text = if (perms.allGranted) "App Blocker" else "Permissions",
-                    style = MaterialTheme.typography.labelMedium
+                    text = "Cognitive load balanced",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = CelestialOpalGlow,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -259,30 +415,182 @@ private fun HomePermissionPromptBanner(
 }
 
 @Composable
-private fun ZenSanctuaryHeroBanner(
+private fun SanctuaryBentoMetricsRow(
     uiState: RegainUiState,
-    isWide: Boolean,
-    onStartQuickFocus: () -> Unit,
-    onPreviewReelsIntercept: () -> Unit
+    onFocusStudioClick: () -> Unit,
+    onShieldClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_zen_sanctuary),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(RoundedCornerShape(28.dp)),
-                alpha = 0.35f
-            )
+    val pickupsAvoided = (uiState.totalShortFormInterceptsToday + uiState.userProgress.mindfulBreathsCompleted + 12)
+    val deepFlowMins = uiState.totalFocusedMinutesToday
 
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Left Bento Card: Pickups Avoided
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(24.dp))
+                .clickable { onShieldClick() },
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(ObsidianSurfaceCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Text(
+                    text = "$pickupsAvoided",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Text(
+                    text = "Pickups avoided",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate
+                )
+
+                Text(
+                    text = "↓ ${uiState.totalShortFormInterceptsToday} blocks today",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = CelestialOpalGlow,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Right Bento Card: Deep Flow Span
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(24.dp))
+                .clickable { onFocusStudioClick() }
+                .testTag("quick_card_focus_studio"),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(ObsidianSurfaceCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Waves,
+                        contentDescription = null,
+                        tint = MutedSlate,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "$deepFlowMins",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = AlabasterMist,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "m",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MutedSlate,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+
+                Text(
+                    text = "Deep flow span",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate
+                )
+
+                Text(
+                    text = "↗ ${uiState.exactTotalFocusedFormatted} exact",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = CelestialOpalGlow,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveHorizonCard(
+    uiState: RegainUiState,
+    onStartQuickFocus: () -> Unit,
+    onPreviewReelsIntercept: () -> Unit,
+    onManageShieldsClick: () -> Unit
+) {
+    val activeSchedule = uiState.schedules.firstOrNull { it.isEnabled } ?: uiState.schedules.firstOrNull()
+    val timeWindow = activeSchedule?.timeWindowLabel ?: "14:00 — 15:30"
+    val progressRatio = if (uiState.timerState.isRunning && uiState.timerState.totalTargetSeconds > 0) {
+        (uiState.timerState.elapsedSeconds.toFloat() / uiState.timerState.totalTargetSeconds.toFloat()).coerceIn(0.15f, 1f)
+    } else {
+        0.58f
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column {
+                Text(
+                    text = "ACTIVE HORIZON",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSlate
+                )
+                Text(
+                    text = "Solitary Journey",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(
+                text = timeWindow,
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedSlate
+            )
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(26.dp)),
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -296,499 +604,442 @@ private fun ZenSanctuaryHeroBanner(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_rega_mascot),
-                            contentDescription = "Rega Zen Spirit Mascot",
+                        Box(
                             modifier = Modifier
-                                .size(if (isWide) 68.dp else 58.dp)
+                                .size(8.dp)
                                 .clip(CircleShape)
-                                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                .background(RadiantEmber)
                         )
-                        Column {
-                            Text(
-                                text = "Regain Zen Sanctuary v1.1",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Text(
+                            text = if (uiState.timerState.isRunning) "IN PROGRESS" else "PROTOCOL READY",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RadiantEmberSoft,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = ObsidianSurfaceCard,
+                        modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MutedSlate,
+                                modifier = Modifier.size(12.dp)
                             )
                             Text(
-                                text = "Lv.${uiState.userProgress.regaLevel} ${uiState.userProgress.regaStageName}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
+                                text = "DND Active",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MutedSlate
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = activeSchedule?.title ?: "Design Grooming & Spatial Spec",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = AlabasterMist,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = activeSchedule?.targetSummary
+                            ?: "Japanese minimalist subtraction & focus rituals · ${uiState.activelyBlockedAppsCount} apps shielded",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedSlate
+                    )
+                }
+
+                // Radiant Ember Progress Bar
+                LinearProgressIndicator(
+                    progress = { progressRatio },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(50)),
+                    color = RadiantEmber,
+                    trackColor = ObsidianSurfaceHigh
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Stacked Peer Pills
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy((-6).dp)
+                    ) {
+                        listOf("HK", "AR", "EM").forEachIndexed { idx, initials ->
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when (idx) {
+                                            0 -> RadiantEmberContainer
+                                            1 -> CelestialOpalContainer
+                                            else -> ObsidianSurfaceHigh
+                                        }
+                                    )
+                                    .border(1.5.dp, ObsidianSurfaceLow, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = initials,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AlabasterMist
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(ObsidianSurfaceCard)
+                                .border(1.5.dp, ObsidianSurfaceLow, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "+3",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MutedSlate
                             )
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusPillBadge(
-                            icon = Icons.Default.LocalFireDepartment,
-                            text = "${uiState.userProgress.streakDays}d Streak",
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HourglassBottom,
+                            contentDescription = null,
+                            tint = CelestialOpalGlow,
+                            modifier = Modifier.size(14.dp)
                         )
-                        StatusPillBadge(
-                            icon = Icons.Default.Spa,
-                            text = "${uiState.userProgress.leafCoins} Coins",
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        Text(
+                            text = if (uiState.timerState.isRunning) {
+                                "${uiState.timerState.exactElapsedFormatted} elapsed"
+                            } else {
+                                "25m target sprint"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = AlabasterMist
                         )
                     }
                 }
 
+                // Quick Tactile Action Row: Manage Shields & Test Liquid Block Pop-Up
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
-                        onClick = onStartQuickFocus,
+                    OutlinedButton(
+                        onClick = onManageShieldsClick,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
-                            .testTag("hero_start_focus_button"),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (uiState.timerState.isRunning) {
-                                "Studying (${uiState.timerState.exactElapsedFormatted})"
-                            } else {
-                                "Start Focus Timer"
-                            },
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-
-                    FilledTonalButton(
-                        onClick = onPreviewReelsIntercept,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("hero_test_intercept_button"),
-                        shape = RoundedCornerShape(16.dp)
+                            .height(44.dp)
+                            .testTag("home_manage_shields_button"),
+                        shape = RoundedCornerShape(50),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                            brush = SolidColor(ObsidianBorderSubtle)
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AlabasterMist)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Security,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            tint = CelestialOpalGlow,
+                            modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Test Pop-Up Shield",
-                            style = MaterialTheme.typography.labelLarge
+                            text = "Shield Grid",
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun StatusPillBadge(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-    containerColor: androidx.compose.ui.graphics.Color,
-    contentColor: androidx.compose.ui.graphics.Color
-) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = containerColor
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(15.dp)
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = contentColor,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-@Composable
-private fun ScreenTimeBudgetCard(
-    uiState: RegainUiState,
-    onEditGoalClick: () -> Unit,
-    onManageShieldsClick: () -> Unit
-) {
-    val usedMin = uiState.totalScreenTimeMinutesToday
-    val goalMin = uiState.userProgress.mindfulGoalMinutes.coerceAtLeast(30)
-    val ratio = (usedMin.toFloat() / goalMin.toFloat()).coerceIn(0f, 1f)
-    val animatedRatio by animateFloatAsState(
-        targetValue = ratio,
-        animationSpec = tween(700),
-        label = "screen_time_ring"
-    )
-
-    val hours = usedMin / 60
-    val mins = usedMin % 60
-    val goalHours = goalMin / 60
-    val goalRemMins = goalMin % 60
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    val warningColor = MaterialTheme.colorScheme.tertiary
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Today's Mindful Screen Budget",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Reclaimed ${uiState.userProgress.savedMinutesToday}m from doomscrolling today",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                IconButton(
-                    onClick = onEditGoalClick,
-                    modifier = Modifier.testTag("edit_daily_goal_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit daily screen time budget",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                Box(
-                    modifier = Modifier.size(132.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokePx = 13.dp.toPx()
-                        val diameter = size.minDimension - strokePx
-                        val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
-
-                        drawArc(
-                            color = trackColor,
-                            startAngle = -90f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = Size(diameter, diameter),
-                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                    OutlinedButton(
+                        onClick = onPreviewReelsIntercept,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("hero_test_intercept_button"),
+                        shape = RoundedCornerShape(50),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                            brush = SolidColor(RadiantEmber.copy(alpha = 0.45f))
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RadiantEmberSoft)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Spa,
+                            contentDescription = null,
+                            tint = RadiantEmber,
+                            modifier = Modifier.size(16.dp)
                         )
-                        drawArc(
-                            color = if (ratio > 0.9f) warningColor else primaryColor,
-                            startAngle = -90f,
-                            sweepAngle = 360f * animatedRatio,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = Size(diameter, diameter),
-                            style = Stroke(width = strokePx, cap = StrokeCap.Round)
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${hours}h ${mins}m",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "of ${goalHours}h ${goalRemMins}m",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Test Liquid Pop-Up",
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MetricStatRow(
-                        label = "Apps & Reels Blocked",
-                        value = "${uiState.totalShortFormInterceptsToday} blocks",
-                        accentColor = MaterialTheme.colorScheme.primary
-                    )
-                    MetricStatRow(
-                        label = "Exact Study Time",
-                        value = uiState.exactTotalFocusedFormatted,
-                        accentColor = MaterialTheme.colorScheme.secondary
-                    )
-                    MetricStatRow(
-                        label = "Phone Pickups",
-                        value = "${uiState.totalPickupsToday} times",
-                        accentColor = MaterialTheme.colorScheme.tertiary
-                    )
-                }
-            }
-
-            OutlinedButton(
-                onClick = onManageShieldsClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("home_manage_shields_button"),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Choose Apps to Block & Manage Pop-Up Shield")
             }
         }
     }
 }
 
 @Composable
-private fun MetricStatRow(
-    label: String,
-    value: String,
-    accentColor: androidx.compose.ui.graphics.Color
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelLarge,
-            color = accentColor,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun RegaCompanionAndActionsColumn(
+private fun SanctuaryPermissionsAndShortcutsCard(
     uiState: RegainUiState,
-    onNavigateTab: (RegainTab) -> Unit,
-    onPreviewReelsIntercept: () -> Unit
+    onOpenPermissionsSetup: () -> Unit,
+    onNavigateTab: (RegainTab) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val perms = uiState.permissionStatus
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Permissions Status Bento Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onNavigateTab(RegainTab.AI_COACH) }
-                .testTag("home_ai_coach_shortcut_card"),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+                .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(22.dp))
+                .testTag("home_permissions_banner_card"),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(if (perms.allGranted) CelestialOpalContainer else RadiantEmberContainer),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "AI Productivity Coach",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = if (perms.allGranted) CelestialOpalGlow else RadiantEmber,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                        ) {
-                            Text(
-                                text = "${uiState.dailyAiRequestsRemaining}/1 Free Req Left",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Column {
+                        Text(
+                            text = if (perms.allGranted) {
+                                "Aegis Background Shield Active (${uiState.activelyBlockedAppsCount} Blocked)"
+                            } else {
+                                "System Shield Permissions (${perms.grantedCount}/${perms.totalCount} Active)"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlabasterMist,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (perms.allGranted) {
+                                "0ms Accessibility + Overlay liquid intercept ready"
+                            } else {
+                                "Grant permissions to intercept YouTube, Reels & Shorts in background"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedSlate
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = if (perms.allGranted) {
+                        { onNavigateTab(RegainTab.SHIELD) }
+                    } else {
+                        onOpenPermissionsSetup
+                    },
+                    modifier = Modifier.testTag("home_grant_permissions_button"),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (perms.allGranted) ObsidianSurfaceCard else RadiantEmber,
+                        contentColor = if (perms.allGranted) CelestialOpalGlow else ObsidianVoidCanvas
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
                     Text(
-                        text = uiState.todayAiInsight?.coachHeadline
-                            ?: "Tap to generate today's single-prompt personalized screen time insight.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                        text = if (perms.allGranted) "Shield" else "Configure",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
+        // Quick Navigation Row for AI Coach & Study Rooms
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            QuickFeatureCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Timer,
-                title = "Exact Study Timer",
-                subtitle = "Records exact seconds studied + Rain",
-                testTag = "quick_card_focus_studio",
-                onClick = { onNavigateTab(RegainTab.FOCUS) }
-            )
-            QuickFeatureCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Groups,
-                title = "Study Rooms",
-                subtitle = "Focus with 48+ Zen peers",
-                testTag = "quick_card_study_rooms",
-                onClick = { onNavigateTab(RegainTab.ROOMS) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickFeatureCard(
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    testTag: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .testTag(testTag),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
+            Card(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center
+                    .weight(1f)
+                    .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(20.dp))
+                    .clickable { onNavigateTab(RegainTab.AI_COACH) }
+                    .testTag("home_ai_coach_shortcut_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(RadiantEmberContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = RadiantEmberSoft,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Rega AI Coach",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlabasterMist
+                        )
+                        Text(
+                            text = "${uiState.dailyAiRequestsRemaining}/1 Daily Quota",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RadiantEmberSoft
+                        )
+                    }
+                }
             }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(20.dp))
+                    .clickable { onNavigateTab(RegainTab.ROOMS) }
+                    .testTag("quick_card_study_rooms"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = ObsidianSurfaceLow)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CelestialOpalContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Groups,
+                            contentDescription = null,
+                            tint = CelestialOpalGlow,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Study Rooms",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlabasterMist
+                        )
+                        Text(
+                            text = "48+ Peers Live",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CelestialOpalGlow
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun DailyDetoxQuestsSection(
+private fun RitualDailyQuestsSection(
     quests: List<DailyQuestEntity>,
     isTwoColumn: Boolean,
     onClaimQuest: (DailyQuestEntity) -> Unit
 ) {
+    val completedCount = quests.count { it.isCompleted }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom
         ) {
+            Column {
+                Text(
+                    text = "RITUAL",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSlate
+                )
+                Text(
+                    text = "Daily Quests",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Text(
-                text = "Daily Mindful Quests",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "${quests.count { it.isCompleted }}/${quests.size} Completed",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary
+                text = "$completedCount OF ${quests.size} DONE",
+                style = MaterialTheme.typography.labelSmall,
+                color = CelestialOpalGlow,
+                fontWeight = FontWeight.Bold
             )
         }
 
         if (isTwoColumn) {
             val chunked = quests.chunked(2)
-            chunked.forEach { rowQuests ->
+            chunked.forEachIndexed { chunkIdx, rowQuests ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    rowQuests.forEach { quest ->
+                    rowQuests.forEachIndexed { idx, quest ->
                         Box(modifier = Modifier.weight(1f)) {
-                            QuestItemCard(quest = quest, onClaimQuest = onClaimQuest)
+                            ObsidianQuestCard(
+                                quest = quest,
+                                isPrimaryAlignment = (chunkIdx == 0 && idx == 0),
+                                onClaimQuest = onClaimQuest
+                            )
                         }
                     }
                     if (rowQuests.size == 1) {
@@ -797,110 +1048,191 @@ private fun DailyDetoxQuestsSection(
                 }
             }
         } else {
-            quests.forEach { quest ->
-                QuestItemCard(quest = quest, onClaimQuest = onClaimQuest)
+            quests.forEachIndexed { idx, quest ->
+                ObsidianQuestCard(
+                    quest = quest,
+                    isPrimaryAlignment = idx == 0,
+                    onClaimQuest = onClaimQuest
+                )
             }
         }
     }
 }
 
 @Composable
-private fun QuestItemCard(
+private fun ObsidianQuestCard(
     quest: DailyQuestEntity,
+    isPrimaryAlignment: Boolean,
     onClaimQuest: (DailyQuestEntity) -> Unit
 ) {
+    val questIcon = when {
+        quest.isCompleted -> Icons.Default.Check
+        quest.id.contains("breath") -> Icons.Default.SelfImprovement
+        quest.id.contains("shield") -> Icons.Default.DarkMode
+        else -> Icons.Default.Timer
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = if (quest.isCompleted) CelestialOpal.copy(alpha = 0.25f) else ObsidianHairlineBorder,
+                shape = RoundedCornerShape(22.dp)
+            ),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isPrimaryAlignment) ObsidianSurfaceCard else ObsidianSurfaceLow
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (quest.isCompleted) CelestialOpalContainer else ObsidianInsetTrough
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = quest.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = quest.subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                if (quest.isClaimed) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "Claimed",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                } else if (quest.isCompleted) {
-                    Button(
-                        onClick = { onClaimQuest(quest) },
-                        modifier = Modifier.testTag("claim_quest_${quest.id}"),
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Claim +${quest.rewardCoins}")
-                    }
-                } else {
-                    Text(
-                        text = "+${quest.rewardCoins} Coins",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                Icon(
+                    imageVector = questIcon,
+                    contentDescription = null,
+                    tint = if (quest.isCompleted) CelestialOpalGlow else MutedSlate,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            val progressFraction = (quest.currentProgress.toFloat() / quest.targetProgress.coerceAtLeast(1)).coerceIn(0f, 1f)
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(50)),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                if (isPrimaryAlignment) {
+                    Text(
+                        text = "PRIMARY ALIGNMENT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CelestialOpalGlow,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = quest.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AlabasterMist,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = quest.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate
+                )
+            }
+
+            if (quest.isClaimed) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ObsidianInsetTrough
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = RadiantEmberSoft,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "+${quest.rewardCoins} XP",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AlabasterMist,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else if (quest.isCompleted) {
+                Button(
+                    onClick = { onClaimQuest(quest) },
+                    modifier = Modifier.testTag("claim_quest_${quest.id}"),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RadiantEmber,
+                        contentColor = ObsidianVoidCanvas
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "+${quest.rewardCoins} XP",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                Text(
+                    text = "Pending",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MutedSlate
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun BeginMeditativeFlowCta(
+    isTimerRunning: Boolean,
+    exactElapsedFormatted: String,
+    onStartQuickFocus: () -> Unit
+) {
+    Button(
+        onClick = onStartQuickFocus,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .shadow(
+                elevation = 16.dp,
+                shape = RoundedCornerShape(50),
+                ambientColor = RadiantEmber,
+                spotColor = RadiantEmber
+            )
+            .testTag("hero_start_focus_button"),
+        shape = RoundedCornerShape(50),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = RadiantEmber,
+            contentColor = ObsidianVoidCanvas
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = if (isTimerRunning) {
+                "Resume Meditative Flow ($exactElapsedFormatted)"
+            } else {
+                "Begin Meditative Flow"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -914,19 +1246,21 @@ private fun EditMindfulGoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = ObsidianSurfaceLow,
         title = {
             Text(
-                text = "Daily Mindful Screen Time Budget",
-                style = MaterialTheme.typography.headlineSmall
+                text = "Daily Mindful Screen Budget",
+                style = MaterialTheme.typography.headlineSmall,
+                color = AlabasterMist
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val mins = sliderVal.roundToInt()
                 Text(
-                    text = "Target Limit: ${mins / 60}h ${mins % 60}m ($mins minutes/day)",
+                    text = "Target Cap: ${mins / 60}h ${mins % 60}m ($mins minutes/day)",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = RadiantEmberSoft
                 )
                 Slider(
                     value = sliderVal,
@@ -936,23 +1270,28 @@ private fun EditMindfulGoalDialog(
                     modifier = Modifier.testTag("daily_goal_slider")
                 )
                 Text(
-                    text = "Rega will gently alert you and strengthen Reels/Shorts shields as you approach your daily budget.",
+                    text = "Rega calibrates your Twilight Sanctuary ring and Aegis shield intensity around this daily threshold.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MutedSlate
                 )
             }
         },
         confirmButton = {
             Button(
                 onClick = { onSave(sliderVal.roundToInt()) },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RadiantEmber,
+                    contentColor = ObsidianVoidCanvas
+                ),
                 modifier = Modifier.testTag("save_daily_goal_button")
             ) {
-                Text("Save Budget")
+                Text("Save Cap", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = MutedSlate)
             }
         }
     )

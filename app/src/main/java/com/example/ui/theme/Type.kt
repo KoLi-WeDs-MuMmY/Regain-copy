@@ -8,13 +8,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
-val LoraFontFamily = FontFamily(
-    Font(R.font.lora, FontWeight.Normal),
-    Font(R.font.lora, FontWeight.Medium),
-    Font(R.font.lora, FontWeight.SemiBold),
-    Font(R.font.lora, FontWeight.Bold)
-)
-
 val PlusJakartaFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Normal),
     Font(R.font.plus_jakarta_sans, FontWeight.Medium),
@@ -22,63 +15,76 @@ val PlusJakartaFontFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Bold)
 )
 
+val LoraFontFamily = FontFamily(
+    Font(R.font.lora, FontWeight.Normal),
+    Font(R.font.lora, FontWeight.Medium),
+    Font(R.font.lora, FontWeight.SemiBold),
+    Font(R.font.lora, FontWeight.Bold)
+)
+
 val Typography = Typography(
     displayLarge = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 46.sp,
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 48.sp,
         lineHeight = 54.sp,
-        letterSpacing = (-0.5).sp
+        letterSpacing = (-1.2).sp
     ),
     displayMedium = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 36.sp,
-        lineHeight = 44.sp
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 38.sp,
+        lineHeight = 44.sp,
+        letterSpacing = (-0.8).sp
     ),
     displaySmall = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
-        lineHeight = 36.sp
+        lineHeight = 34.sp,
+        letterSpacing = (-0.5).sp
     ),
     headlineLarge = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 26.sp,
-        lineHeight = 34.sp
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.4).sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
-        lineHeight = 28.sp
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.3).sp
     ),
     headlineSmall = TextStyle(
-        fontFamily = LoraFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 19.sp,
-        lineHeight = 26.sp
+        fontFamily = PlusJakartaFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleLarge = TextStyle(
         fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 18.sp,
-        lineHeight = 24.sp
+        lineHeight = 24.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleMedium = TextStyle(
         fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     titleSmall = TextStyle(
         fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = PlusJakartaFontFamily,
@@ -90,33 +96,33 @@ val Typography = Typography(
         fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp
+        lineHeight = 21.sp
     ),
     bodySmall = TextStyle(
         fontFamily = PlusJakartaFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 16.sp
+        lineHeight = 18.sp
     ),
     labelLarge = TextStyle(
         fontFamily = PlusJakartaFontFamily,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.2.sp
     ),
     labelMedium = TextStyle(
         fontFamily = PlusJakartaFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.SemiBold,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.3.sp
+        letterSpacing = 0.4.sp
     ),
     labelSmall = TextStyle(
         fontFamily = PlusJakartaFontFamily,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 11.sp,
         lineHeight = 15.sp,
-        letterSpacing = 0.4.sp
+        letterSpacing = 0.8.sp
     )
 )

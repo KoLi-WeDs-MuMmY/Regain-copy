@@ -9,26 +9,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +28,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Spa
@@ -63,6 +48,7 @@ import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -70,8 +56,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -81,15 +69,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -106,7 +93,6 @@ import com.example.ui.RegainTab
 import com.example.ui.RegainUiState
 import com.example.ui.RegainViewModel
 import com.example.ui.components.MindfulInterceptModal
-import com.example.ui.components.RegainOpeningTransition
 import com.example.ui.computeAdaptiveLayoutInfo
 import com.example.ui.screens.AiCoachInsightsScreen
 import com.example.ui.screens.FocusStudioScreen
@@ -114,7 +100,22 @@ import com.example.ui.screens.PermissionsAndOverlayControlCard
 import com.example.ui.screens.SanctuaryHomeScreen
 import com.example.ui.screens.ShieldLimitsScreen
 import com.example.ui.screens.StudyRoomsScreen
+import com.example.ui.theme.AlabasterMist
+import com.example.ui.theme.CelestialOpal
+import com.example.ui.theme.CelestialOpalContainer
+import com.example.ui.theme.CelestialOpalGlow
+import com.example.ui.theme.MutedSlate
+import com.example.ui.theme.ObsidianBorderSubtle
+import com.example.ui.theme.ObsidianHairlineBorder
+import com.example.ui.theme.ObsidianInsetTrough
+import com.example.ui.theme.ObsidianSurfaceCard
+import com.example.ui.theme.ObsidianSurfaceLow
+import com.example.ui.theme.ObsidianVoidCanvas
+import com.example.ui.theme.RadiantEmber
+import com.example.ui.theme.RadiantEmberContainer
+import com.example.ui.theme.RadiantEmberSoft
 import com.example.ui.theme.RegainZenTheme
+import com.example.ui.theme.WarmCreamIvory
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -137,9 +138,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         isAppInForeground = true
         extractInterceptExtras(intent)
-        val shouldPlayOpeningTransition = savedInstanceState == null &&
-            pendingInterceptTarget.isNullOrBlank() &&
-            pendingReturnedFromOverlayTarget.isNullOrBlank()
 
         enableEdgeToEdge()
         setContent {
@@ -148,10 +146,6 @@ class MainActivity : ComponentActivity() {
                 val uiState by regainViewModel.uiState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
                 val lifecycleOwner = LocalLifecycleOwner.current
-
-                var showOpeningTransition by rememberSaveable {
-                    mutableStateOf(shouldPlayOpeningTransition)
-                }
 
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
@@ -187,7 +181,6 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingReturnedFromOverlayTarget) {
                     val returnedTarget = pendingReturnedFromOverlayTarget
                     if (!returnedTarget.isNullOrBlank()) {
-                        showOpeningTransition = false
                         regainViewModel.handleReturnedFromOverlaySanctuary(returnedTarget)
                         pendingReturnedFromOverlayTarget = null
                     }
@@ -196,7 +189,6 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingInterceptTarget, pendingInterceptSubtitle) {
                     val target = pendingInterceptTarget
                     if (!target.isNullOrBlank()) {
-                        showOpeningTransition = false
                         regainViewModel.handleIncomingInterceptIntent(target, pendingInterceptSubtitle)
                         pendingInterceptTarget = null
                         pendingInterceptSubtitle = null
@@ -227,11 +219,6 @@ class MainActivity : ComponentActivity() {
                         onRequestBatteryPermission = {
                             RegainPermissionsManager.requestIgnoreBatteryOptimizations(context)
                         }
-                    )
-
-                    RegainOpeningTransition(
-                        visible = showOpeningTransition,
-                        onOpeningFinished = { showOpeningTransition = false }
                     )
                 }
             }
@@ -280,10 +267,12 @@ fun RegainZenAdaptiveApp(
     if (uiState.showPermissionsDialog) {
         AlertDialog(
             onDismissRequest = viewModel::dismissPermissionsDialog,
+            containerColor = ObsidianSurfaceLow,
             title = {
                 Text(
-                    text = "Control, Block & Pop-Up Permissions",
-                    style = MaterialTheme.typography.headlineSmall
+                    text = "Aegis Shield & Pop-Up Permissions",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AlabasterMist
                 )
             },
             text = {
@@ -302,9 +291,14 @@ fun RegainZenAdaptiveApp(
                         viewModel.refreshPermissionsStatus()
                         viewModel.dismissPermissionsDialog()
                     },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RadiantEmber,
+                        contentColor = ObsidianVoidCanvas
+                    ),
                     modifier = Modifier.testTag("done_permissions_dialog_button")
                 ) {
-                    Text("Done")
+                    Text("Done", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -314,7 +308,7 @@ fun RegainZenAdaptiveApp(
                         viewModel.selectTab(RegainTab.SHIELD)
                     }
                 ) {
-                    Text("Go to App Blocker")
+                    Text("Open Shield Grid", color = CelestialOpalGlow)
                 }
             }
         )
@@ -323,7 +317,7 @@ fun RegainZenAdaptiveApp(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(ObsidianVoidCanvas)
     ) {
         val layoutInfo = computeAdaptiveLayoutInfo(maxWidth = maxWidth, maxHeight = maxHeight)
 
@@ -342,7 +336,12 @@ fun RegainZenAdaptiveApp(
                         .weight(1f)
                         .fillMaxHeight()
                 ) {
-                    AnimatedPopUpNotificationBanner(
+                    ObsidianTopAppBar(
+                        uiState = uiState,
+                        onOpenPermissions = viewModel::openPermissionsDialog,
+                        onNavigateSanctuary = { viewModel.selectTab(RegainTab.SANCTUARY) }
+                    )
+                    StaticStatusFeedbackBanner(
                         popUpAlert = uiState.popUpAlert,
                         fallbackMessage = uiState.statusBannerMessage,
                         onDismiss = viewModel::clearBannerMessage
@@ -364,7 +363,15 @@ fun RegainZenAdaptiveApp(
         } else {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
+                containerColor = ObsidianVoidCanvas,
                 contentWindowInsets = WindowInsets.safeDrawing,
+                topBar = {
+                    ObsidianTopAppBar(
+                        uiState = uiState,
+                        onOpenPermissions = viewModel::openPermissionsDialog,
+                        onNavigateSanctuary = { viewModel.selectTab(RegainTab.SANCTUARY) }
+                    )
+                },
                 bottomBar = {
                     RegainBottomNavigationBar(
                         currentTab = uiState.currentTab,
@@ -377,7 +384,7 @@ fun RegainZenAdaptiveApp(
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
-                    AnimatedPopUpNotificationBanner(
+                    StaticStatusFeedbackBanner(
                         popUpAlert = uiState.popUpAlert,
                         fallbackMessage = uiState.statusBannerMessage,
                         onDismiss = viewModel::clearBannerMessage
@@ -413,9 +420,170 @@ fun RegainZenAdaptiveApp(
 }
 
 /**
- * Renders the active tab screen inside a directional [AnimatedContent] transition container
- * so interchanging between tabs (`SANCTUARY`, `FOCUS`, `SHIELD`, `ROOMS`, `AI_COACH`) plays a
- * smooth horizontal slide + scale + fade transition compatible with all screen sizes.
+ * Top bar matching the Obsidian Sanctuary & Tactile Chrono reference designs:
+ * - Left: Glowing Radiant Ember dot + Screen/Brand Title + Version pill (`v1.3`)
+ * - Right: Streak Pill (`14D` / `streakDays`), Leaf Coins Pill (`480`), Shield/Permissions button, and Avatar badge.
+ */
+@Composable
+private fun ObsidianTopAppBar(
+    uiState: RegainUiState,
+    onOpenPermissions: () -> Unit,
+    onNavigateSanctuary: () -> Unit
+) {
+    val headerTitle = when (uiState.currentTab) {
+        RegainTab.SANCTUARY -> "Sanctuary"
+        RegainTab.FOCUS -> "RegainZen"
+        RegainTab.SHIELD -> "Shield"
+        RegainTab.ROOMS -> "Rooms"
+        RegainTab.AI_COACH -> "RegainZen"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.clickable { onNavigateSanctuary() }
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (uiState.currentTab == RegainTab.SHIELD) CelestialOpalGlow
+                        else RadiantEmber
+                    )
+            )
+            Text(
+                text = headerTitle,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = AlabasterMist
+            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = ObsidianSurfaceCard,
+                modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(8.dp))
+            ) {
+                Text(
+                    text = "V1.3",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSlate,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Streak Badge Pill (e.g. "14D")
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = CelestialOpalContainer,
+                modifier = Modifier.border(1.dp, CelestialOpal.copy(alpha = 0.35f), RoundedCornerShape(50))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = CelestialOpalGlow,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "${uiState.userProgress.streakDays}D",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CelestialOpalGlow
+                    )
+                }
+            }
+
+            // Tactile Chrono Coins Pill (e.g. "480")
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = ObsidianSurfaceCard,
+                modifier = Modifier.border(1.dp, ObsidianHairlineBorder, RoundedCornerShape(50))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Spa,
+                        contentDescription = null,
+                        tint = WarmCreamIvory,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "${uiState.userProgress.leafCoins}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AlabasterMist
+                    )
+                }
+            }
+
+            // Permissions / Shield Quick Icon Button
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(ObsidianSurfaceCard)
+                    .border(
+                        width = 1.dp,
+                        color = if (uiState.permissionStatus.allGranted) {
+                            CelestialOpal.copy(alpha = 0.45f)
+                        } else {
+                            RadiantEmber.copy(alpha = 0.55f)
+                        },
+                        shape = CircleShape
+                    )
+                    .clickable(onClick = onOpenPermissions),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = "Permissions & Shield Setup",
+                    tint = if (uiState.permissionStatus.allGranted) CelestialOpalGlow else RadiantEmberSoft,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            // Warm Coral Avatar Pill matching screenshots
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(RadiantEmberSoft)
+                    .clickable(onClick = onNavigateSanctuary),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_rega_mascot),
+                    contentDescription = "Rega Companion",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Version 1.3.0 — Static in-app tab switching (theme/tab animations reserved for v1.3.1).
  */
 @Composable
 private fun RegainScreenContent(
@@ -428,141 +596,123 @@ private fun RegainScreenContent(
     onRequestAccessibilityPermission: () -> Unit,
     onRequestBatteryPermission: () -> Unit
 ) {
-    AnimatedContent(
-        targetState = uiState.currentTab,
-        transitionSpec = {
-            val movingForward = targetState.ordinal >= initialState.ordinal
-            val enterSlide = slideInHorizontally(
-                animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
-                initialOffsetX = { fullWidth -> if (movingForward) fullWidth / 6 else -fullWidth / 6 }
-            )
-            val exitSlide = slideOutHorizontally(
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                targetOffsetX = { fullWidth -> if (movingForward) -fullWidth / 6 else fullWidth / 6 }
-            )
-            (enterSlide + fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.98f, animationSpec = tween(220)))
-                .togetherWith(exitSlide + fadeOut(animationSpec = tween(180)))
-        },
-        label = "regain_tab_transition"
-    ) { targetTab ->
-        when (targetTab) {
-            RegainTab.SANCTUARY -> SanctuaryHomeScreen(
-                uiState = uiState,
-                layoutInfo = layoutInfo,
-                onNavigateTab = viewModel::selectTab,
-                onStartQuickFocus = {
-                    viewModel.selectTab(RegainTab.FOCUS)
-                    if (!uiState.timerState.isRunning) {
-                        viewModel.toggleStartPauseFocusTimer()
-                    }
-                },
-                onPreviewReelsIntercept = {
-                    val reelsShield = uiState.shortFormShields.find { it.id == "instagram_reels" }
-                    val app = uiState.appLimits.find { it.packageName == "com.instagram.android" }
-                    viewModel.triggerMindfulIntercept(
-                        targetName = "Instagram Reels",
-                        targetSubtitle = "Targeted Short-Form Feed Shield (DMs Open)",
-                        usedMinutes = reelsShield?.usedMinutesToday ?: 0,
-                        limitMinutes = app?.dailyLimitMinutes ?: 30,
-                        isStrictLocked = false,
-                        keepDmsAvailable = true,
-                        packageName = "com.instagram.android"
-                    )
-                },
-                onOpenPermissionsSetup = viewModel::openPermissionsDialog,
-                onClaimQuest = viewModel::claimDailyQuestReward,
-                onUpdateDailyGoal = viewModel::updateMindfulDailyGoal
-            )
+    when (uiState.currentTab) {
+        RegainTab.SANCTUARY -> SanctuaryHomeScreen(
+            uiState = uiState,
+            layoutInfo = layoutInfo,
+            onNavigateTab = viewModel::selectTab,
+            onStartQuickFocus = {
+                viewModel.selectTab(RegainTab.FOCUS)
+                if (!uiState.timerState.isRunning) {
+                    viewModel.toggleStartPauseFocusTimer()
+                }
+            },
+            onPreviewReelsIntercept = {
+                val reelsShield = uiState.shortFormShields.find { it.id == "instagram_reels" }
+                val app = uiState.appLimits.find { it.packageName == "com.instagram.android" }
+                viewModel.triggerMindfulIntercept(
+                    targetName = "Instagram Reels",
+                    targetSubtitle = "Targeted Short-Form Feed Shield (DMs Open)",
+                    usedMinutes = reelsShield?.usedMinutesToday ?: 0,
+                    limitMinutes = app?.dailyLimitMinutes ?: 30,
+                    isStrictLocked = false,
+                    keepDmsAvailable = true,
+                    packageName = "com.instagram.android"
+                )
+            },
+            onOpenPermissionsSetup = viewModel::openPermissionsDialog,
+            onClaimQuest = viewModel::claimDailyQuestReward,
+            onUpdateDailyGoal = viewModel::updateMindfulDailyGoal
+        )
 
-            RegainTab.FOCUS -> FocusStudioScreen(
-                timerState = uiState.timerState,
-                recentSessions = uiState.focusSessions,
-                layoutInfo = layoutInfo,
-                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-                onSelectMode = viewModel::selectTimerMode,
-                onUpdateCustomMinutes = viewModel::updateCustomCountdownMinutes,
-                onSelectTag = viewModel::selectFocusTag,
-                onToggleStrictLock = viewModel::toggleStrictFocusLock,
-                onSelectAmbientSound = viewModel::selectAmbientSound,
-                onUpdateVolume = viewModel::updateSoundVolume,
-                onToggleSoundPreview = viewModel::toggleAmbientPreview,
-                onToggleStartPause = viewModel::toggleStartPauseFocusTimer,
-                onResetTimer = viewModel::resetFocusTimer,
-                onSaveExactStudiedTime = viewModel::completeCurrentFocusSession
-            )
+        RegainTab.FOCUS -> FocusStudioScreen(
+            timerState = uiState.timerState,
+            recentSessions = uiState.focusSessions,
+            layoutInfo = layoutInfo,
+            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+            onSelectMode = viewModel::selectTimerMode,
+            onUpdateCustomMinutes = viewModel::updateCustomCountdownMinutes,
+            onSelectTag = viewModel::selectFocusTag,
+            onToggleStrictLock = viewModel::toggleStrictFocusLock,
+            onSelectAmbientSound = viewModel::selectAmbientSound,
+            onUpdateVolume = viewModel::updateSoundVolume,
+            onToggleSoundPreview = viewModel::toggleAmbientPreview,
+            onToggleStartPause = viewModel::toggleStartPauseFocusTimer,
+            onResetTimer = viewModel::resetFocusTimer,
+            onSaveExactStudiedTime = viewModel::completeCurrentFocusSession
+        )
 
-            RegainTab.SHIELD -> ShieldLimitsScreen(
-                permissionStatus = uiState.permissionStatus,
-                discoverableApps = uiState.discoverableApps,
-                shortFormShields = uiState.shortFormShields,
-                appLimits = uiState.appLimits,
-                schedules = uiState.schedules,
-                layoutInfo = layoutInfo,
-                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-                onRequestNotificationPermission = onRequestNotificationPermission,
-                onRequestOverlayPermission = onRequestOverlayPermission,
-                onRequestUsagePermission = onRequestUsagePermission,
-                onRequestAccessibilityPermission = onRequestAccessibilityPermission,
-                onRequestBatteryPermission = onRequestBatteryPermission,
-                onAddOrBlockApp = viewModel::addOrBlockSelectedApp,
-                onToggleBlockAppCompletely = viewModel::toggleBlockAppCompletely,
-                onRemoveAppFromBlocker = viewModel::removeAppFromBlocker,
-                onCycleShieldMode = viewModel::cycleShortFormShieldMode,
-                onToggleShieldEnabled = viewModel::toggleShortFormShieldEnabled,
-                onToggleShieldKeepDms = viewModel::toggleShortFormKeepDms,
-                onTestShieldIntercept = { shield ->
-                    viewModel.triggerMindfulIntercept(
-                        targetName = "${shield.platformName} (${shield.feedName})",
-                        targetSubtitle = "Targeted Short-Form Shield",
-                        usedMinutes = shield.usedMinutesToday,
-                        limitMinutes = shield.dailyCapMinutes.coerceAtLeast(15),
-                        isStrictLocked = false,
-                        keepDmsAvailable = shield.allowDirectMessages
-                    )
-                },
-                onToggleAppLimit = viewModel::toggleAppLimitEnabled,
-                onUpdateAppLimitMinutes = viewModel::updateAppDailyLimitMinutes,
-                onToggleAppStrict = viewModel::toggleAppStrictLock,
-                onTestAppIntercept = { app ->
-                    viewModel.triggerMindfulIntercept(
-                        targetName = app.appName,
-                        targetSubtitle = if (app.isBlockedCompletely) {
-                            "Blocked Completely by Regain Zen App Blocker"
-                        } else {
-                            "${app.category} · Daily Cap ${app.dailyLimitMinutes}m"
-                        },
-                        usedMinutes = app.usedTodayMinutes,
-                        limitMinutes = app.dailyLimitMinutes,
-                        isStrictLocked = app.isStrictLocked,
-                        keepDmsAvailable = false,
-                        packageName = app.packageName
-                    )
-                },
-                onToggleSchedule = viewModel::toggleScheduleEnabled,
-                onAddSchedule = viewModel::addCustomSchedule,
-                onDeleteSchedule = viewModel::deleteSchedule
-            )
+        RegainTab.SHIELD -> ShieldLimitsScreen(
+            permissionStatus = uiState.permissionStatus,
+            discoverableApps = uiState.discoverableApps,
+            shortFormShields = uiState.shortFormShields,
+            appLimits = uiState.appLimits,
+            schedules = uiState.schedules,
+            layoutInfo = layoutInfo,
+            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+            onRequestNotificationPermission = onRequestNotificationPermission,
+            onRequestOverlayPermission = onRequestOverlayPermission,
+            onRequestUsagePermission = onRequestUsagePermission,
+            onRequestAccessibilityPermission = onRequestAccessibilityPermission,
+            onRequestBatteryPermission = onRequestBatteryPermission,
+            onAddOrBlockApp = viewModel::addOrBlockSelectedApp,
+            onToggleBlockAppCompletely = viewModel::toggleBlockAppCompletely,
+            onRemoveAppFromBlocker = viewModel::removeAppFromBlocker,
+            onCycleShieldMode = viewModel::cycleShortFormShieldMode,
+            onToggleShieldEnabled = viewModel::toggleShortFormShieldEnabled,
+            onToggleShieldKeepDms = viewModel::toggleShortFormKeepDms,
+            onTestShieldIntercept = { shield ->
+                viewModel.triggerMindfulIntercept(
+                    targetName = "${shield.platformName} (${shield.feedName})",
+                    targetSubtitle = "Targeted Short-Form Shield",
+                    usedMinutes = shield.usedMinutesToday,
+                    limitMinutes = shield.dailyCapMinutes.coerceAtLeast(15),
+                    isStrictLocked = false,
+                    keepDmsAvailable = shield.allowDirectMessages
+                )
+            },
+            onToggleAppLimit = viewModel::toggleAppLimitEnabled,
+            onUpdateAppLimitMinutes = viewModel::updateAppDailyLimitMinutes,
+            onToggleAppStrict = viewModel::toggleAppStrictLock,
+            onTestAppIntercept = { app ->
+                viewModel.triggerMindfulIntercept(
+                    targetName = app.appName,
+                    targetSubtitle = if (app.isBlockedCompletely) {
+                        "Blocked Completely by Regain Zen App Blocker"
+                    } else {
+                        "${app.category} · Daily Cap ${app.dailyLimitMinutes}m"
+                    },
+                    usedMinutes = app.usedTodayMinutes,
+                    limitMinutes = app.dailyLimitMinutes,
+                    isStrictLocked = app.isStrictLocked,
+                    keepDmsAvailable = false,
+                    packageName = app.packageName
+                )
+            },
+            onToggleSchedule = viewModel::toggleScheduleEnabled,
+            onAddSchedule = viewModel::addCustomSchedule,
+            onDeleteSchedule = viewModel::deleteSchedule
+        )
 
-            RegainTab.ROOMS -> StudyRoomsScreen(
-                studyRoomState = uiState.studyRoomState,
-                userFocusedMinutesToday = uiState.totalFocusedMinutesToday,
-                userStreakDays = uiState.userProgress.streakDays,
-                layoutInfo = layoutInfo,
-                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-                onJoinRoom = viewModel::joinStudyRoom,
-                onToggleRoomTicker = viewModel::toggleStudyRoomFocusTicker,
-                onSendCheer = viewModel::sendRoomFocusCheer
-            )
+        RegainTab.ROOMS -> StudyRoomsScreen(
+            studyRoomState = uiState.studyRoomState,
+            userFocusedMinutesToday = uiState.totalFocusedMinutesToday,
+            userStreakDays = uiState.userProgress.streakDays,
+            layoutInfo = layoutInfo,
+            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+            onJoinRoom = viewModel::joinStudyRoom,
+            onToggleRoomTicker = viewModel::toggleStudyRoomFocusTicker,
+            onSendCheer = viewModel::sendRoomFocusCheer
+        )
 
-            RegainTab.AI_COACH -> AiCoachInsightsScreen(
-                uiState = uiState,
-                singlePromptPreview = viewModel.buildLiveSinglePromptPreview(),
-                layoutInfo = layoutInfo,
-                onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
-                onGenerateDailyInsight = { viewModel.generateDailyAiCoachInsight() },
-                onResetQuotaForDemo = viewModel::resetDailyAiQuotaForTesting
-            )
-        }
+        RegainTab.AI_COACH -> AiCoachInsightsScreen(
+            uiState = uiState,
+            singlePromptPreview = viewModel.buildLiveSinglePromptPreview(),
+            layoutInfo = layoutInfo,
+            onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
+            onGenerateDailyInsight = { viewModel.generateDailyAiCoachInsight() },
+            onResetQuotaForDemo = viewModel::resetDailyAiQuotaForTesting
+        )
     }
 }
 
@@ -575,8 +725,15 @@ private fun RegainBottomNavigationBar(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
+            .border(
+                width = 1.dp,
+                color = ObsidianHairlineBorder,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            )
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .testTag("bottom_navigation_bar"),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = ObsidianInsetTrough,
+        tonalElevation = 0.dp
     ) {
         RegainTab.entries.forEach { tab ->
             val selected = currentTab == tab
@@ -586,16 +743,26 @@ private fun RegainBottomNavigationBar(
                 icon = {
                     Icon(
                         imageVector = tab.icon(selected),
-                        contentDescription = tab.label
+                        contentDescription = tab.label,
+                        modifier = Modifier.size(22.dp)
                     )
                 },
                 label = {
                     Text(
-                        text = tab.label,
+                        text = tab.shortNavLabel(),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                     )
                 },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = CelestialOpalGlow,
+                    selectedTextColor = CelestialOpalGlow,
+                    indicatorColor = ObsidianSurfaceCard,
+                    unselectedIconColor = MutedSlate,
+                    unselectedTextColor = MutedSlate
+                ),
                 modifier = Modifier.testTag("nav_tab_${tab.route}")
             )
         }
@@ -610,8 +777,9 @@ private fun RegainNavigationRail(
     NavigationRail(
         modifier = Modifier
             .fillMaxHeight()
+            .border(1.dp, ObsidianHairlineBorder)
             .testTag("side_navigation_rail"),
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = ObsidianInsetTrough
     ) {
         Spacer(modifier = Modifier.height(12.dp))
         RegainTab.entries.forEach { tab ->
@@ -625,7 +793,19 @@ private fun RegainNavigationRail(
                         contentDescription = tab.label
                     )
                 },
-                label = { Text(tab.label) },
+                label = {
+                    Text(
+                        text = tab.shortNavLabel(),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = CelestialOpalGlow,
+                    selectedTextColor = CelestialOpalGlow,
+                    indicatorColor = ObsidianSurfaceCard,
+                    unselectedIconColor = MutedSlate,
+                    unselectedTextColor = MutedSlate
+                ),
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .testTag("nav_rail_${tab.route}")
@@ -635,142 +815,111 @@ private fun RegainNavigationRail(
 }
 
 @Composable
-private fun AnimatedPopUpNotificationBanner(
+private fun StaticStatusFeedbackBanner(
     popUpAlert: AnimatedPopUpAlert?,
     fallbackMessage: String?,
     onDismiss: () -> Unit
 ) {
     val isVisible = popUpAlert != null || !fallbackMessage.isNullOrBlank()
+    if (!isVisible) return
 
-    val infiniteTransition = rememberInfiniteTransition(label = "popup_bell_pulse")
-    val iconScale by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 750, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+    val title = popUpAlert?.title ?: "Regain Zen Telemetry"
+    val body = popUpAlert?.message ?: fallbackMessage.orEmpty()
+    val badge = popUpAlert?.badgeText ?: "v1.3.0"
+    val isWarning = popUpAlert?.isWarning == true
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(
+                width = 1.dp,
+                color = if (isWarning) RadiantEmber.copy(alpha = 0.5f) else CelestialOpal.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable { onDismiss() }
+            .testTag("status_feedback_banner"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = ObsidianSurfaceCard
         ),
-        label = "bell_scale"
-    )
-
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInVertically(
-            initialOffsetY = { -it },
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        ) + scaleIn(
-            initialScale = 0.88f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        ) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { -it }) + scaleOut() + fadeOut()
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        val title = popUpAlert?.title ?: "Regain Zen Pop-Up"
-        val body = popUpAlert?.message ?: fallbackMessage.orEmpty()
-        val badge = popUpAlert?.badgeText ?: "v1.2"
-        val isWarning = popUpAlert?.isWarning == true
-
-        Card(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .clickable { onDismiss() }
-                .testTag("status_feedback_banner"),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isWarning) {
-                    MaterialTheme.colorScheme.tertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.primaryContainer
-                }
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(if (isWarning) RadiantEmberContainer else CelestialOpalContainer),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .scale(iconScale)
-                        .clip(CircleShape)
-                        .background(
-                            if (isWarning) MaterialTheme.colorScheme.tertiary
-                            else MaterialTheme.colorScheme.primary
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsActive,
-                        contentDescription = null,
-                        tint = if (isWarning) MaterialTheme.colorScheme.onTertiary
-                        else MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.NotificationsActive,
+                    contentDescription = null,
+                    tint = if (isWarning) RadiantEmber else CelestialOpalGlow,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AlabasterMist
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = ObsidianInsetTrough
                     ) {
                         Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleSmall,
+                            text = badge,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isWarning) RadiantEmberSoft else CelestialOpalGlow,
                             fontWeight = FontWeight.Bold,
-                            color = if (isWarning) {
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            }
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                        ) {
-                            Text(
-                                text = badge,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
                     }
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isWarning) {
-                            MaterialTheme.colorScheme.onTertiaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        },
-                        fontWeight = FontWeight.Medium
-                    )
                 }
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedSlate,
+                    fontWeight = FontWeight.Medium
+                )
+            }
 
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss pop-up",
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss notification",
+                    tint = MutedSlate,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
+}
+
+private fun RegainTab.shortNavLabel(): String = when (this) {
+    RegainTab.SANCTUARY -> "Sanctuary"
+    RegainTab.FOCUS -> "Focus"
+    RegainTab.SHIELD -> "Shield"
+    RegainTab.ROOMS -> "Rooms"
+    RegainTab.AI_COACH -> "Coach"
 }
 
 private fun RegainTab.icon(selected: Boolean): ImageVector = when (this) {
