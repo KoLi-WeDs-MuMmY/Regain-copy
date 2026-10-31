@@ -93,7 +93,8 @@ data class UserProgressEntity(
     val savedMinutesToday: Int = 0,
     val mindfulBreathsCompleted: Int = 0,
     val strictModeGlobal: Boolean = false,
-    val strictPassphrase: String = "I choose mindful presence"
+    val strictPassphrase: String = "I choose mindful presence",
+    val customGeminiApiKey: String = ""
 )
 
 data class AiCoachInsightEntity(
@@ -247,7 +248,8 @@ class RegainDatabase private constructor(context: Context) :
                 savedMinutesToday INTEGER NOT NULL,
                 mindfulBreathsCompleted INTEGER NOT NULL,
                 strictModeGlobal INTEGER NOT NULL,
-                strictPassphrase TEXT NOT NULL
+                strictPassphrase TEXT NOT NULL,
+                customGeminiApiKey TEXT NOT NULL DEFAULT ''
             )
             """.trimIndent()
         )
@@ -537,7 +539,8 @@ class RegainDatabase private constructor(context: Context) :
                     savedMinutesToday = c.getInt(c.getColumnIndexOrThrow("savedMinutesToday")),
                     mindfulBreathsCompleted = c.getInt(c.getColumnIndexOrThrow("mindfulBreathsCompleted")),
                     strictModeGlobal = c.getInt(c.getColumnIndexOrThrow("strictModeGlobal")) != 0,
-                    strictPassphrase = c.getString(c.getColumnIndexOrThrow("strictPassphrase"))
+                    strictPassphrase = c.getString(c.getColumnIndexOrThrow("strictPassphrase")),
+                    customGeminiApiKey = c.getString(c.getColumnIndexOrThrow("customGeminiApiKey"))
                 )
             }
         }
@@ -800,6 +803,7 @@ private fun UserProgressEntity.toContentValues() = ContentValues().apply {
     put("mindfulBreathsCompleted", mindfulBreathsCompleted)
     put("strictModeGlobal", if (strictModeGlobal) 1 else 0)
     put("strictPassphrase", strictPassphrase)
+    put("customGeminiApiKey", customGeminiApiKey)
 }
 
 private fun AiCoachInsightEntity.toContentValues() = ContentValues().apply {

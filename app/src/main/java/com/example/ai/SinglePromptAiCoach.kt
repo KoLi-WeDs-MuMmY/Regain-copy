@@ -97,7 +97,7 @@ class SinglePromptAiCoach {
         dateKey: String,
         prompt: String
     ): AiCoachInsightEntity? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey"
         val payload = JSONObject().apply {
             put(
                 "contents",

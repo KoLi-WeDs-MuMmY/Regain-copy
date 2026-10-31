@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -136,60 +137,7 @@ fun SanctuaryHomeScreen(
             )
         }
 
-        // 2. Two-Column Bento Telemetry (Pickups Avoided & Deep Flow Span)
-        item {
-            SanctuaryBentoMetricsRow(
-                uiState = uiState,
-                onFocusStudioClick = { onNavigateTab(RegainTab.FOCUS) },
-                onShieldClick = { onNavigateTab(RegainTab.SHIELD) }
-            )
-        }
-
-        // 3. Active Horizon / Solitary Journey + Permissions & Shield Quick Bar
-        if (layoutInfo.isTwoPaneCapable) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Box(modifier = Modifier.weight(1.08f)) {
-                        ActiveHorizonCard(
-                            uiState = uiState,
-                            onStartQuickFocus = onStartQuickFocus,
-                            onPreviewReelsIntercept = onPreviewReelsIntercept,
-                            onManageShieldsClick = { onNavigateTab(RegainTab.SHIELD) }
-                        )
-                    }
-                    Column(
-                        modifier = Modifier.weight(0.92f),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        SanctuaryPermissionsAndShortcutsCard(
-                            uiState = uiState,
-                            onOpenPermissionsSetup = onOpenPermissionsSetup,
-                            onNavigateTab = onNavigateTab
-                        )
-                    }
-                }
-            }
-        } else {
-            item {
-                ActiveHorizonCard(
-                    uiState = uiState,
-                    onStartQuickFocus = onStartQuickFocus,
-                    onPreviewReelsIntercept = onPreviewReelsIntercept,
-                    onManageShieldsClick = { onNavigateTab(RegainTab.SHIELD) }
-                )
-            }
-            item {
-                SanctuaryPermissionsAndShortcutsCard(
-                    uiState = uiState,
-                    onOpenPermissionsSetup = onOpenPermissionsSetup,
-                    onNavigateTab = onNavigateTab
-                )
-            }
-        }
+        // 2. Daily Quests Section
 
         // 4. Ritual / Daily Quests Section
         item {
@@ -280,41 +228,55 @@ private fun TwilightSanctuaryHeroSection(
                 .clickable { onEditGoalClick() },
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        onDrawBehind {
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val maxRadius = size.minDimension / 2f
+
+                            // Ambient Radiant Ember radial bloom behind the ring
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        RadiantEmber.copy(alpha = 0.18f),
+                                        RadiantEmberContainer.copy(alpha = 0.10f),
+                                        Color.Transparent
+                                    ),
+                                    center = center,
+                                    radius = maxRadius
+                                ),
+                                radius = maxRadius,
+                                center = center
+                            )
+
+                            val strokePx = 6.dp.toPx()
+                            val ringDiameter = size.minDimension * 0.80f
+                            val topLeft = Offset(
+                                (size.width - ringDiameter) / 2f,
+                                (size.height - ringDiameter) / 2f
+                            )
+
+                            // Subtle Dark Track Ring
+                            drawArc(
+                                color = ObsidianSurfaceHigh.copy(alpha = 0.85f),
+                                startAngle = -90f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                topLeft = topLeft,
+                                size = Size(ringDiameter, ringDiameter),
+                                style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                            )
+                        }
+                    }
+            ) {
                 val center = Offset(size.width / 2f, size.height / 2f)
-                val maxRadius = size.minDimension / 2f
-
-                // Ambient Radiant Ember radial bloom behind the ring
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            RadiantEmber.copy(alpha = 0.18f),
-                            RadiantEmberContainer.copy(alpha = 0.10f),
-                            Color.Transparent
-                        ),
-                        center = center,
-                        radius = maxRadius
-                    ),
-                    radius = maxRadius,
-                    center = center
-                )
-
                 val strokePx = 6.dp.toPx()
                 val ringDiameter = size.minDimension * 0.80f
                 val topLeft = Offset(
                     (size.width - ringDiameter) / 2f,
                     (size.height - ringDiameter) / 2f
-                )
-
-                // Subtle Dark Track Ring
-                drawArc(
-                    color = ObsidianSurfaceHigh.copy(alpha = 0.85f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    topLeft = topLeft,
-                    size = Size(ringDiameter, ringDiameter),
-                    style = Stroke(width = strokePx, cap = StrokeCap.Round)
                 )
 
                 // Soft Outer Glow Arc

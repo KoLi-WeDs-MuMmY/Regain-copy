@@ -711,7 +711,10 @@ private fun RegainScreenContent(
             layoutInfo = layoutInfo,
             onBackToHome = { viewModel.selectTab(RegainTab.SANCTUARY) },
             onGenerateDailyInsight = { viewModel.generateDailyAiCoachInsight() },
-            onResetQuotaForDemo = viewModel::resetDailyAiQuotaForTesting
+            onSetMode = viewModel::setAiCoachMode,
+            onSendChatMessage = viewModel::sendAiChatMessage,
+            onUpdateApiKey = viewModel::updateCustomGeminiApiKey,
+            onToggleApiKeyDialog = viewModel::setShowApiKeyDialog
         )
     }
 }

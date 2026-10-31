@@ -112,6 +112,18 @@ data class StudyRoomUiState(
     val rooms: List<VirtualStudyRoom> = defaultStudyRooms()
 )
 
+enum class AiCoachMode {
+    INSIGHTS,
+    CHAT
+}
+
+data class AiCoachUiState(
+    val mode: AiCoachMode = AiCoachMode.INSIGHTS,
+    val chatHistory: List<com.example.ai.ChatMessage> = emptyList(),
+    val isSendingChat: Boolean = false,
+    val showApiKeyDialog: Boolean = false
+)
+
 data class RegainUiState(
     val currentTab: RegainTab = RegainTab.SANCTUARY,
     val appLimits: List<AppLimitEntity> = emptyList(),
@@ -130,7 +142,8 @@ data class RegainUiState(
     val popUpAlert: AnimatedPopUpAlert? = null,
     val permissionStatus: BlockerPermissionStatus = BlockerPermissionStatus(),
     val showPermissionsDialog: Boolean = false,
-    val discoverableApps: List<SelectableDeviceApp> = emptyList()
+    val discoverableApps: List<SelectableDeviceApp> = emptyList(),
+    val aiCoachState: AiCoachUiState = AiCoachUiState()
 ) {
     val hasSystemUsagePermission: Boolean
         get() = permissionStatus.hasUsageStatsPermission
@@ -185,6 +198,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = RegainRepository(database.regainDao(), application)
     private val soundEngine = ZenSoundEngine(viewModelScope)
     private val aiCoach = SinglePromptAiCoach()
+    private val geminiService = com.example.ai.GeminiAiService()
 
     private val _currentTab = MutableStateFlow(RegainTab.SANCTUARY)
     private val _timerState = MutableStateFlow(ActiveTimerUiState())
@@ -196,6 +210,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     private val _permissionStatus = MutableStateFlow(RegainPermissionsManager.checkAllPermissions(application))
     private val _showPermissionsDialog = MutableStateFlow(false)
     private val _discoverableApps = MutableStateFlow<List<SelectableDeviceApp>>(emptyList())
+    private val _aiCoachState = MutableStateFlow(AiCoachUiState())
 
     private var timerJob: Job? = null
     private var roomTickerJob: Job? = null
@@ -221,13 +236,13 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private val overlayAndPermsFlow = combine(
-        _bannerMessage,
-        _popUpAlert,
+        combine(_bannerMessage, _popUpAlert) { b, p -> b to p },
         _permissionStatus,
         _showPermissionsDialog,
-        _discoverableApps
-    ) { banner, popUp, perms, showPerms, apps ->
-        OverlayPermsBundle(banner, popUp, perms, showPerms, apps)
+        _discoverableApps,
+        _aiCoachState
+    ) { bannerPopUp, perms, showPerms, apps, aiCoachState ->
+        OverlayPermsBundle(bannerPopUp.first, bannerPopUp.second, perms, showPerms, apps, aiCoachState)
     }
 
     val uiState: StateFlow<RegainUiState> = combine(
@@ -255,7 +270,8 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
             popUpAlert = overlay.popUp,
             permissionStatus = overlay.perms,
             showPermissionsDialog = overlay.showPerms,
-            discoverableApps = overlay.discoverableApps
+            discoverableApps = overlay.discoverableApps,
+            aiCoachState = overlay.aiCoachState
         )
     }.stateIn(
         scope = viewModelScope,
@@ -1026,6 +1042,7 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _isGeneratingAi.value = true
             try {
+                val userKey = state.userProgress.customGeminiApiKey.ifBlank { "" }
                 delay(450L)
                 val insight = aiCoach.generateDailyCappedInsight(
                     dateKey = state.todayDateKey,
@@ -1033,7 +1050,8 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                     shields = state.shortFormShields,
                     sessions = state.focusSessions,
                     progress = state.userProgress,
-                    preferOnlineGeminiIfKeyPresent = preferOnlineGemini
+                    preferOnlineGeminiIfKeyPresent = userKey.isNotBlank(),
+                    optionalApiKey = userKey
                 )
                 repository.upsertAiInsight(insight)
                 postBanner(
@@ -1043,6 +1061,80 @@ class RegainViewModel(application: Application) : AndroidViewModel(application) 
                 )
             } finally {
                 _isGeneratingAi.value = false
+            }
+        }
+    }
+
+    fun setAiCoachMode(mode: AiCoachMode) {
+        _aiCoachState.update { it.copy(mode = mode) }
+    }
+
+    fun updateCustomGeminiApiKey(key: String) {
+        viewModelScope.launch {
+            val progress = uiState.value.userProgress
+            repository.upsertUserProgress(progress.copy(customGeminiApiKey = key.trim()))
+            postBanner(
+                message = if (key.isBlank()) "Removed custom Gemini API key." else "Custom Gemini API key updated and saved locally.",
+                title = "API Key Updated",
+                badgeText = "AI Coach Settings"
+            )
+        }
+    }
+
+    fun setShowApiKeyDialog(show: Boolean) {
+        _aiCoachState.update { it.copy(showApiKeyDialog = show) }
+    }
+
+    fun sendAiChatMessage(text: String) {
+        if (text.isBlank()) return
+        val current = _aiCoachState.value
+        if (current.isSendingChat) return
+        
+        val userKey = uiState.value.userProgress.customGeminiApiKey
+        if (userKey.isBlank()) {
+            postBanner(
+                message = "Please configure your custom Gemini API key in the AI Coach settings to enable full chat.",
+                title = "API Key Required",
+                badgeText = "Chat Disabled",
+                isWarning = true
+            )
+            _aiCoachState.update { it.copy(showApiKeyDialog = true) }
+            return
+        }
+
+        val newUserMsg = com.example.ai.ChatMessage(role = "user", text = text)
+        _aiCoachState.update { 
+            it.copy(
+                chatHistory = it.chatHistory + newUserMsg,
+                isSendingChat = true
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                val response = geminiService.chat(
+                    apiKey = userKey,
+                    history = current.chatHistory,
+                    userMessage = text
+                )
+                if (response != null) {
+                    _aiCoachState.update { 
+                        it.copy(
+                            chatHistory = it.chatHistory + com.example.ai.ChatMessage(role = "model", text = response),
+                            isSendingChat = false
+                        )
+                    }
+                } else {
+                    _aiCoachState.update { it.copy(isSendingChat = false) }
+                    postBanner(
+                        message = "Failed to reach Rega AI. Please check your API key and internet connection.",
+                        title = "AI Response Failed",
+                        badgeText = "Network Error",
+                        isWarning = true
+                    )
+                }
+            } catch (e: Exception) {
+                _aiCoachState.update { it.copy(isSendingChat = false) }
             }
         }
     }
@@ -1099,7 +1191,8 @@ private data class OverlayPermsBundle(
     val popUp: AnimatedPopUpAlert?,
     val perms: BlockerPermissionStatus,
     val showPerms: Boolean,
-    val discoverableApps: List<SelectableDeviceApp>
+    val discoverableApps: List<SelectableDeviceApp>,
+    val aiCoachState: AiCoachUiState
 )
 
 fun defaultStudyRooms(): List<VirtualStudyRoom> = listOf(
